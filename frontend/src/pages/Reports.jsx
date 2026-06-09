@@ -1,0 +1,263 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FileText, Download, BarChart2, Calendar, TrendingUp, Globe,
+  Briefcase, Search, Share2, Megaphone, CheckCircle, Clock,
+  Star, Filter, Eye, Trash2, Plus
+} from 'lucide-react';
+
+const mockReports = [
+  {
+    id: 'rpt-1', title: 'Q2 2026 Full Marketing Report', type: 'comprehensive',
+    created: '2026-06-01', pages: 24, size: '3.2 MB', status: 'ready',
+    scores: { business: 92, health: 88, seo: 91, social: 74, marketing: 89 },
+  },
+  {
+    id: 'rpt-2', title: 'Acme Corp Website Audit Report', type: 'audit',
+    created: '2026-05-28', pages: 12, size: '1.8 MB', status: 'ready',
+    scores: { business: 0, health: 88, seo: 91, social: 0, marketing: 0 },
+  },
+  {
+    id: 'rpt-3', title: 'May Social Media Performance', type: 'social',
+    created: '2026-05-31', pages: 8, size: '1.1 MB', status: 'ready',
+    scores: { business: 0, health: 0, seo: 0, social: 74, marketing: 0 },
+  },
+  {
+    id: 'rpt-4', title: 'SEO Keyword & Technical Audit', type: 'seo',
+    created: '2026-05-20', pages: 16, size: '2.4 MB', status: 'ready',
+    scores: { business: 0, health: 0, seo: 91, social: 0, marketing: 0 },
+  },
+  {
+    id: 'rpt-5', title: 'June Marketing Strategy Plan', type: 'strategy',
+    created: '2026-06-05', pages: 19, size: '2.9 MB', status: 'generating',
+    scores: { business: 92, health: 88, seo: 91, social: 74, marketing: 89 },
+  },
+];
+
+const typeConfig = {
+  comprehensive: { label: 'Full Report', color: 'from-violet-500 to-purple-600', icon: BarChart2, bg: 'bg-violet-50 text-violet-700 border-violet-200' },
+  audit: { label: 'Website Audit', color: 'from-cyan-500 to-blue-500', icon: Globe, bg: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  social: { label: 'Social Media', color: 'from-pink-500 to-rose-500', icon: Share2, bg: 'bg-pink-50 text-pink-700 border-pink-200' },
+  seo: { label: 'SEO Report', color: 'from-emerald-500 to-teal-600', icon: Search, bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  strategy: { label: 'Strategy Plan', color: 'from-amber-500 to-orange-500', icon: Megaphone, bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+};
+
+const analyticsStats = [
+  { label: 'Reports Generated', value: '24', icon: FileText, color: 'from-violet-500 to-purple-600' },
+  { label: 'Total Downloads', value: '142', icon: Download, color: 'from-cyan-500 to-blue-500' },
+  { label: 'Avg Report Score', value: '83', icon: TrendingUp, color: 'from-emerald-500 to-teal-600' },
+  { label: 'This Month', value: '7', icon: Calendar, color: 'from-amber-500 to-orange-500' },
+];
+
+const ScorePill = ({ label, score }) => {
+  if (!score) return null;
+  const color = score >= 80 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : score >= 55 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-red-50 text-red-600 border-red-100';
+  return (
+    <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${color}`}>
+      {label} {score}
+    </span>
+  );
+};
+
+const Reports = () => {
+  const [filter, setFilter] = useState('all');
+  const [generating, setGenerating] = useState(false);
+
+  const filtered = filter === 'all' ? mockReports : mockReports.filter(r => r.type === filter);
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    setTimeout(() => setGenerating(false), 3000);
+  };
+
+  const handleDownload = (report) => {
+    // Simulate download
+    const link = document.createElement('a');
+    link.href = '#';
+    alert(`Downloading "${report.title}"...\n\nIn production, this would download a PDF report.`);
+  };
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-800">Reports Center</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Download, manage and analyze all your marketing reports</p>
+        </div>
+        <motion.button
+          onClick={handleGenerate}
+          disabled={generating}
+          whileTap={{ scale: 0.97 }}
+          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 hover:opacity-95 disabled:opacity-60 transition-all"
+        >
+          {generating ? (
+            <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating...</>
+          ) : (
+            <><Plus className="h-4 w-4" /> Generate New Report</>
+          )}
+        </motion.button>
+      </div>
+
+      {/* Analytics Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {analyticsStats.map((stat, i) => (
+          <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-sm`}>
+              <stat.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-slate-800">{stat.value}</p>
+              <p className="text-xs text-slate-400 leading-tight">{stat.label}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Report Analytics Chart */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-bold text-slate-800">Report Generation History</h3>
+          <span className="text-xs text-slate-400">Last 6 months</span>
+        </div>
+        <div className="flex items-end gap-3 h-28">
+          {[
+            { month: 'Jan', count: 2 },
+            { month: 'Feb', count: 4 },
+            { month: 'Mar', count: 3 },
+            { month: 'Apr', count: 6 },
+            { month: 'May', count: 5 },
+            { month: 'Jun', count: 7 },
+          ].map((item, i) => (
+            <div key={item.month} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-xs font-bold text-slate-500">{item.count}</span>
+              <motion.div
+                className="w-full rounded-t-lg bg-gradient-to-t from-violet-500 to-indigo-400"
+                initial={{ height: 0 }}
+                animate={{ height: `${(item.count / 7) * 100}%` }}
+                transition={{ delay: i * 0.1, duration: 0.6, ease: 'easeOut' }}
+              />
+              <span className="text-[10px] text-slate-400">{item.month}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filter Tabs + Report List */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex gap-1 flex-wrap">
+            {[
+              { id: 'all', label: 'All Reports' },
+              { id: 'comprehensive', label: 'Full' },
+              { id: 'audit', label: 'Audit' },
+              { id: 'seo', label: 'SEO' },
+              { id: 'social', label: 'Social' },
+              { id: 'strategy', label: 'Strategy' },
+            ].map(f => (
+              <button key={f.id} onClick={() => setFilter(f.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filter === f.id ? 'bg-violet-100 text-violet-700' : 'text-slate-500 hover:bg-slate-100'}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-slate-400">
+            <Filter className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{filtered.length} reports</span>
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-50">
+          <AnimatePresence>
+            {filtered.map((report, i) => {
+              const cfg = typeConfig[report.type];
+              const Icon = cfg.icon;
+              return (
+                <motion.div key={report.id}
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-all"
+                >
+                  {/* Icon */}
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${cfg.color} text-white shadow-sm`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h4 className="text-sm font-bold text-slate-800 truncate">{report.title}</h4>
+                      <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${cfg.bg}`}>{cfg.label}</span>
+                      {report.status === 'generating' && (
+                        <span className="text-[10px] font-bold border rounded-full px-2 py-0.5 bg-amber-50 text-amber-600 border-amber-200 flex items-center gap-1">
+                          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /> Generating
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{report.created}</span>
+                      <span>{report.pages} pages</span>
+                      <span>{report.size}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {Object.entries(report.scores).map(([key, val]) =>
+                        val > 0 ? <ScorePill key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} score={val} /> : null
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-all">
+                      <Eye className="h-3.5 w-3.5" /> Preview
+                    </button>
+                    <motion.button
+                      onClick={() => handleDownload(report)}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={report.status === 'generating'}
+                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Download
+                    </motion.button>
+                    <button className="rounded-xl p-2 text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Report Features */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <Star className="h-5 w-5 text-amber-400" /> What's Included in Every Report
+        </h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            'Executive Summary Dashboard',
+            'Business Profile Completeness Score',
+            'Website Health & Speed Metrics',
+            'SEO Keyword & On-Page Analysis',
+            'Social Media Performance Breakdown',
+            'AI-Generated Marketing Recommendations',
+            '30-Day Action Plan with Priority Tasks',
+            'Competitor Benchmark Comparison',
+            'ROI Projections & Growth Forecasts',
+          ].map((feature, i) => (
+            <motion.div key={feature} initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
+              className="flex items-center gap-2 text-sm text-slate-600">
+              <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+              {feature}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Reports;
