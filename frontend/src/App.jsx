@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -16,6 +16,12 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
 function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('user_theme') || 'purple';
+    document.body.classList.remove('theme-purple', 'theme-dark', 'theme-blue', 'theme-green', 'theme-light');
+    document.body.classList.add(`theme-${savedTheme}`);
+  }, []);
+
   return (
     <Router>
       <AuthProvider>

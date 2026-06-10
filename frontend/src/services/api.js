@@ -7,7 +7,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 5000, // timeout after 5 seconds to fallback quickly if offline
+  timeout: 5000, // default timeout — overridden per-call for long-running audit/social requests
 });
 
 // Request interceptor to attach JWT token
@@ -493,7 +493,8 @@ export const auditAPI = {
   runAudit: async (websiteUrl) => {
     return executeWithFallback(
       async () => {
-        const response = await api.post('/audit/', { website_url: websiteUrl });
+        // Audits scrape the web — give them a longer timeout
+        const response = await api.post('/audit/', { website_url: websiteUrl }, { timeout: 30000 });
         return response.data;
       },
       () => {
@@ -534,6 +535,123 @@ export const auditAPI = {
         audits.unshift(newAudit);
         setLocalData('mock_audits', audits);
         return newAudit;
+      }
+    );
+  },
+};
+
+export const socialAPI = {
+  runAnalysis: async (urls) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/social/', urls, { timeout: 45000 });
+        return response.data;
+      },
+      () => {
+        // Mock social media analysis for offline/demo mode
+        const analyses = getLocalData('mock_social_analyses', []);
+        const platforms = ['facebook', 'instagram', 'linkedin', 'youtube'];
+        const platformResults = {};
+
+        platforms.forEach(p => {
+          const url = urls[`${p}_url`];
+          if (url) {
+            platformResults[p] = {
+              platform: p,
+              url,
+              reachable: true,
+              profile_found: true,
+              has_bio: Math.random() > 0.3,
+              has_contact: Math.random() > 0.4,
+              has_website_link: Math.random() > 0.35,
+              has_recent_activity: Math.random() > 0.25,
+              posting_frequency: ['Daily', '3x/week', 'Weekly', 'Bi-weekly'][Math.floor(Math.random() * 4)],
+              followers: `${(Math.random() * 50 + 1).toFixed(1)}K`,
+              posts_count: `${Math.floor(Math.random() * 500 + 20)}`,
+              profile_picture: true,
+              completeness_score: Math.floor(Math.random() * 40) + 55,
+              issues: Math.random() > 0.5 ? ['No contact information detected', 'Recent activity not confirmed'] : ['Bio appears incomplete'],
+              strengths: ['Profile picture set', 'Bio present', 'Website link found'].slice(0, Math.floor(Math.random() * 3) + 1),
+            };
+          } else {
+            platformResults[p] = null;
+          }
+        });
+
+        const found = Object.values(platformResults).filter(Boolean).length;
+        const scores = Object.values(platformResults)
+          .filter(Boolean)
+          .map(r => r.completeness_score);
+        const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+        const socialScore = Math.min(100, Math.round(found * 10 + avgScore * 0.6));
+
+        const newAnalysis = {
+          id: `soc-${Date.now()}`,
+          ...urls,
+          facebook_analysis: platformResults.facebook,
+          instagram_analysis: platformResults.instagram,
+          linkedin_analysis: platformResults.linkedin,
+          youtube_analysis: platformResults.youtube,
+          platforms_found: found,
+          platforms_analyzed: found,
+          social_score: socialScore,
+          profile_completeness: avgScore,
+          missing_elements: [
+            !urls.facebook_url ? 'Facebook profile URL not provided' : null,
+            !urls.instagram_url ? 'Instagram profile URL not provided' : null,
+            !urls.linkedin_url ? 'LinkedIn profile URL not provided' : null,
+            !urls.youtube_url ? 'YouTube channel URL not provided' : null,
+          ].filter(Boolean),
+          growth_suggestions: [
+            'Post 3–5x per week on your most engaged platform to maximize algorithm reach.',
+            'Use a consistent brand voice and profile imagery across all platforms.',
+            'Add your website URL to every social profile to drive traffic and boost SEO.',
+            'Engage with comments within the first hour of posting — early engagement signals matter.',
+            'Schedule content in advance with tools like Buffer or Hootsuite for consistency.',
+          ],
+          analysis_summary: {
+            platforms_found: found,
+            platforms_analyzed: found,
+            social_score: socialScore,
+            profile_completeness: avgScore,
+            per_platform_scores: {
+              facebook: platformResults.facebook?.completeness_score || 0,
+              instagram: platformResults.instagram?.completeness_score || 0,
+              linkedin: platformResults.linkedin?.completeness_score || 0,
+              youtube: platformResults.youtube?.completeness_score || 0,
+            },
+          },
+          created_at: new Date().toISOString(),
+        };
+
+        analyses.unshift(newAnalysis);
+        setLocalData('mock_social_analyses', analyses);
+        return newAnalysis;
+      }
+    );
+  },
+
+  getHistory: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/social/');
+        return response.data;
+      },
+      () => getLocalData('mock_social_analyses', [])
+    );
+  },
+
+  getReport: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get(`/social/${id}`);
+        return response.data;
+      },
+      () => {
+        const analyses = getLocalData('mock_social_analyses', []);
+        const found = analyses.find(a => a.id === id);
+        if (found) return found;
+        throw { response: { status: 404 } };
       }
     );
   },

@@ -16,3 +16,4 @@ class User(Base):
     # Relationships
     business_profiles = relationship("BusinessProfile", back_populates="user", cascade="all, delete-orphan")
     website_audits = relationship("WebsiteAudit", back_populates="user", cascade="all, delete-orphan")
+    social_media_analyses = relationship("SocialMediaAnalysis", back_populates="user", cascade="all, delete-orphan")

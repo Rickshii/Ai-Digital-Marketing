@@ -1,218 +1,422 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Share2, TrendingUp, Users, Heart, MessageCircle, Eye, BarChart2, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Share2, Users, CheckCircle, XCircle, AlertTriangle,
+  Globe, Link2, MessageCircle, Clock, RefreshCw, TrendingUp,
+  ArrowUp, BarChart2, Lightbulb, Activity
+} from 'lucide-react';
+import { socialAPI } from '../services/api';
 
-const Instagram = (props) => (
-  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+/* ─── SVG brand icons ─────────────────────────────────────────────────────── */
+const FbIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+const IgIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <rect x="2" y="2" width="20" height="20" rx="5" />
     <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
     <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
   </svg>
 );
-
-const Twitter = (props) => (
-  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
-  </svg>
-);
-
-const Linkedin = (props) => (
-  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
+const LiIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
     <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-    <rect x="2" y="9" width="4" height="12" />
-    <circle cx="4" cy="4" r="2" />
+    <rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" />
+  </svg>
+);
+const YtIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
+    <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" />
   </svg>
 );
 
-const Facebook = (props) => (
-  <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-  </svg>
-);
-
-const platforms = [
-  {
-    name: 'Instagram', icon: Instagram, color: 'from-pink-500 to-rose-500', bg: 'bg-pink-50',
-    followers: '12.4K', growth: '+8.2%', up: true,
-    engagement: '4.7%', reach: '28.5K', impressions: '94.2K',
-    posts: 34, avgLikes: 412, avgComments: 28,
-    weekly: [55, 70, 60, 85, 75, 90, 80],
-  },
-  {
-    name: 'Twitter/X', icon: Twitter, color: 'from-sky-400 to-blue-500', bg: 'bg-sky-50',
-    followers: '5.8K', growth: '+3.1%', up: true,
-    engagement: '2.1%', reach: '11.2K', impressions: '38.9K',
-    posts: 82, avgLikes: 94, avgComments: 12,
-    weekly: [40, 35, 50, 45, 65, 55, 60],
-  },
-  {
-    name: 'LinkedIn', icon: Linkedin, color: 'from-blue-600 to-indigo-600', bg: 'bg-blue-50',
-    followers: '3.2K', growth: '+12.4%', up: true,
-    engagement: '5.9%', reach: '8.4K', impressions: '22.1K',
-    posts: 16, avgLikes: 187, avgComments: 43,
-    weekly: [30, 45, 55, 70, 65, 80, 75],
-  },
-  {
-    name: 'Facebook', icon: Facebook, color: 'from-blue-500 to-blue-700', bg: 'bg-blue-50',
-    followers: '8.1K', growth: '-1.2%', up: false,
-    engagement: '1.3%', reach: '15.6K', impressions: '41.3K',
-    posts: 22, avgLikes: 98, avgComments: 7,
-    weekly: [70, 60, 55, 45, 50, 40, 38],
-  },
+const PLATFORMS = [
+  { key: 'facebook',  label: 'Facebook',  Icon: FbIcon, grad: 'from-blue-600 to-blue-700',   field: 'facebook_url',  placeholder: 'https://facebook.com/yourpage'  },
+  { key: 'instagram', label: 'Instagram', Icon: IgIcon, grad: 'from-pink-500 to-rose-500',   field: 'instagram_url', placeholder: 'https://instagram.com/yourhandle'},
+  { key: 'linkedin',  label: 'LinkedIn',  Icon: LiIcon, grad: 'from-sky-600 to-blue-600',    field: 'linkedin_url',  placeholder: 'https://linkedin.com/company/x' },
+  { key: 'youtube',   label: 'YouTube',   Icon: YtIcon, grad: 'from-red-500 to-rose-600',    field: 'youtube_url',   placeholder: 'https://youtube.com/c/yourchannel'},
 ];
 
-const MiniBarChart = ({ data, color }) => (
-  <div className="flex items-end gap-0.5 h-10">
-    {data.map((v, i) => (
-      <motion.div key={i} className={`flex-1 rounded-sm ${color}`}
-        initial={{ height: 0 }} animate={{ height: `${v}%` }} transition={{ delay: i * 0.06, duration: 0.4 }} />
-    ))}
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+const scoreColor  = (s) => s >= 75 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444';
+const scoreLabel  = (s) => s >= 75 ? 'Strong' : s >= 50 ? 'Moderate' : 'Weak';
+
+const Ring = ({ score, size = 110 }) => {
+  const r = (size - 14) / 2, circ = 2 * Math.PI * r, dash = (score / 100) * circ;
+  const c = scoreColor(score);
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={10} />
+      <motion.circle cx={size/2} cy={size/2} r={r} fill="none" stroke={c} strokeWidth={10}
+        strokeLinecap="round" strokeDasharray={circ}
+        initial={{ strokeDashoffset: circ }}
+        animate={{ strokeDashoffset: circ - dash }}
+        transition={{ duration: 1.2, ease: 'easeOut' }} />
+      <text x="50%" y="52%" dominantBaseline="middle" textAnchor="middle"
+        style={{ transform: `rotate(90deg) translate(0px,-${size}px)`, transformOrigin: `${size/2}px ${size/2}px`,
+          fill: c, fontSize: size * 0.22, fontWeight: 800 }}>
+        {score}
+      </text>
+    </svg>
+  );
+};
+
+const BoolChip = ({ v, yes, no }) => v
+  ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5"><CheckCircle className="h-3 w-3" />{yes}</span>
+  : <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5"><XCircle className="h-3 w-3" />{no}</span>;
+
+const MiniBar = ({ pct, color }) => (
+  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full">
+    <motion.div className={`h-full rounded-full ${color}`}
+      initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+      transition={{ duration: 0.9, ease: 'easeOut' }} />
   </div>
 );
 
+/* ════════════════════════════════════════════════════════════════════════════ */
 const SocialMedia = () => {
-  const [selected, setSelected] = useState(platforms[0]);
+  const [urls, setUrls]       = useState({ facebook_url: '', instagram_url: '', linkedin_url: '', youtube_url: '' });
+  const [loading, setLoad]    = useState(false);
+  const [data, setData]       = useState(null);
+  const [history, setHistory] = useState([]);
+  const [selected, setSelected] = useState('facebook');
+  const [tab, setTab]         = useState('overview');
+  const [error, setError]     = useState('');
+
+  useEffect(() => {
+    socialAPI.getHistory().then(h => {
+      setHistory(h);
+      if (h.length) { setData(h[0]); prefillUrls(h[0]); }
+    }).catch(() => {});
+  }, []);
+
+  const prefillUrls = (d) => setUrls({
+    facebook_url:  d.facebook_url  || '',
+    instagram_url: d.instagram_url || '',
+    linkedin_url:  d.linkedin_url  || '',
+    youtube_url:   d.youtube_url   || '',
+  });
+
+  const handleRun = async (e) => {
+    e.preventDefault();
+    const hasAny = Object.values(urls).some(v => v.trim());
+    if (!hasAny) { setError('Enter at least one social media profile URL.'); return; }
+    setLoad(true); setError(''); setData(null);
+    try {
+      const res = await socialAPI.runAnalysis(urls);
+      setData(res);
+      setHistory(prev => [res, ...prev.filter(x => x.id !== res.id)]);
+      setTab('overview');
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Analysis failed. Please try again.');
+    } finally { setLoad(false); }
+  };
+
+  const platformResult = (key) => {
+    if (!data) return null;
+    return data[`${key}_analysis`] || null;
+  };
+
+  const perScores = data?.analysis_summary?.per_platform_scores || {};
+  const missing   = data?.missing_elements   || [];
+  const suggests  = data?.growth_suggestions || [];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-800">Social Media Analysis</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Multi-platform performance tracking and engagement insights</p>
+        <p className="text-slate-500 text-sm mt-0.5">Multi-platform profile audit, completeness scoring & growth suggestions — Module 5</p>
       </div>
 
-      {/* Platform Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {platforms.map((p, i) => {
-          const Icon = p.icon;
-          const isSelected = selected.name === p.name;
-          return (
-            <motion.button key={p.name} onClick={() => setSelected(p)}
-              initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-              className={`text-left bg-white rounded-2xl border shadow-sm p-4 transition-all hover:shadow-md ${isSelected ? 'border-violet-200 ring-2 ring-violet-100' : 'border-slate-100'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br ${p.color} text-white shadow-sm`}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <span className={`text-xs font-bold flex items-center gap-0.5 ${p.up ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {p.up ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                  {p.growth}
-                </span>
+      {/* Input form */}
+      <form onSubmit={handleRun} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h2 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+          <Share2 className="h-4 w-4 text-violet-500" /> Enter Social Media Profile URLs
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-4 mb-5">
+          {PLATFORMS.map(({ key, label, Icon, field, placeholder, grad }) => (
+            <div key={key} className="relative">
+              <div className={`absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg bg-gradient-to-br ${grad} text-white`}>
+                <Icon className="h-3.5 w-3.5" />
               </div>
-              <p className="text-lg font-extrabold text-slate-800">{p.followers}</p>
-              <p className="text-xs text-slate-400 font-medium">{p.name} Followers</p>
-              <div className="mt-2">
-                <MiniBarChart data={p.weekly} color={`bg-gradient-to-t ${p.color} opacity-70`} />
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-
-      {/* Detail Panel */}
-      <motion.div key={selected.name} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="grid gap-5 lg:grid-cols-3">
-
-        {/* Metrics */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${selected.color} text-white shadow`}>
-              <selected.icon className="h-5 w-5" />
+              <input value={urls[field]} onChange={e => setUrls(u => ({ ...u, [field]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full pl-12 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all"
+              />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-800">{selected.name} Performance</h2>
-              <p className="text-xs text-slate-400">Last 30 days summary</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-            {[
-              { label: 'Followers', value: selected.followers, icon: Users },
-              { label: 'Engagement Rate', value: selected.engagement, icon: Heart },
-              { label: 'Total Reach', value: selected.reach, icon: Eye },
-              { label: 'Impressions', value: selected.impressions, icon: BarChart2 },
-              { label: 'Total Posts', value: selected.posts, icon: MessageCircle },
-              { label: 'Avg Likes', value: selected.avgLikes, icon: TrendingUp },
-            ].map((m, i) => (
-              <motion.div key={m.label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.06 }}
-                className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <m.icon className="h-3.5 w-3.5 text-violet-400" />
-                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{m.label}</span>
-                </div>
-                <p className="text-lg font-extrabold text-slate-800">{m.value}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Weekly Bar Chart */}
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Weekly Engagement (Last 7 Days)</p>
-            <div className="flex items-end gap-2 h-28">
-              {selected.weekly.map((v, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-slate-400">{v}</span>
-                  <motion.div className={`w-full rounded-t-sm bg-gradient-to-t ${selected.color} opacity-80`}
-                    initial={{ height: 0 }} animate={{ height: `${v}%` }} transition={{ delay: i * 0.07, duration: 0.5 }} />
-                  <span className="text-[9px] text-slate-400">{['M','T','W','T','F','S','S'][i]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Recommendations */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <Share2 className="h-4 w-4 text-violet-500" /> AI Insights
-          </h3>
-          <div className="space-y-3">
-            {[
-              { tip: `Post 3–4x/week on ${selected.name} for maximum algorithm reach. Consistency is the top growth driver.`, type: 'action' },
-              { tip: `Engagement rate of ${selected.engagement} is ${parseFloat(selected.engagement) > 3 ? 'above' : 'below'} industry average. ${parseFloat(selected.engagement) > 3 ? 'Leverage this by launching a UGC campaign.' : 'Focus on interactive content like polls and Q&A.'}`, type: 'insight' },
-              { tip: 'Optimal posting time: Tuesday–Thursday between 9–11am for B2B audiences. Schedule content in advance.', type: 'timing' },
-              { tip: 'Cross-promote your highest-performing posts to other platforms to amplify reach without extra content creation effort.', type: 'strategy' },
-            ].map((r, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
-                className="rounded-xl bg-violet-50 border border-violet-100 p-3 text-xs text-slate-700 leading-relaxed">
-                <span className="block font-bold text-violet-600 text-[10px] uppercase tracking-wider mb-1">
-                  {r.type === 'action' ? '⚡ Action' : r.type === 'insight' ? '💡 Insight' : r.type === 'timing' ? '🕒 Timing' : '📈 Strategy'}
-                </span>
-                {r.tip}
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Growth Score */}
-          <div className="mt-5 rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100 p-4 text-center">
-            <p className="text-xs font-bold text-slate-500 mb-1">Overall Social Score</p>
-            <p className="text-4xl font-extrabold text-gradient">{selected.up ? '74' : '51'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">/ 100</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Content Recommendations */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <h3 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-pink-500" /> Top Content Ideas for This Week
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { title: 'Behind-the-Scenes Reel', desc: 'Show your product development process. BTS content drives 2x the shares.', format: 'Video', platform: 'Instagram' },
-            { title: 'Case Study Thread', desc: 'Break down a customer success story into 6–8 tweet thread for LinkedIn and Twitter.', format: 'Text', platform: 'LinkedIn' },
-            { title: 'Infographic: 5 Tips', desc: 'Design a "5 tips for [your niche]" infographic — static posts still dominate algorithmic reach.', format: 'Image', platform: 'Facebook' },
-          ].map((idea, i) => (
-            <motion.div key={i} initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }}
-              className="rounded-xl border border-slate-100 bg-slate-50 p-4 hover:border-violet-100 hover:bg-violet-50/30 transition-all">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">{idea.format}</span>
-                <span className="text-xs text-slate-400">{idea.platform}</span>
-              </div>
-              <p className="text-sm font-bold text-slate-800 mb-1">{idea.title}</p>
-              <p className="text-xs text-slate-500 leading-relaxed">{idea.desc}</p>
-            </motion.div>
           ))}
         </div>
-      </div>
+        {error && <p className="text-xs text-red-500 flex items-center gap-1 mb-3"><XCircle className="h-3.5 w-3.5" />{error}</p>}
+        <motion.button type="submit" disabled={loading} whileTap={{ scale: 0.97 }}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-60">
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+          {loading ? 'Analysing platforms…' : 'Run Social Analysis'}
+        </motion.button>
+        {loading && (
+          <div className="mt-4 space-y-1.5">
+            {PLATFORMS.map(({ label }, i) => (
+              <motion.p key={label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.5 }}
+                className="text-xs text-slate-400 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />Checking {label} profile…
+              </motion.p>
+            ))}
+          </div>
+        )}
+      </form>
+
+      {/* History pills */}
+      {history.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {history.slice(0, 5).map(h => (
+            <button key={h.id} onClick={() => { setData(h); prefillUrls(h); }}
+              className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${data?.id === h.id ? 'bg-violet-100 border-violet-300 text-violet-700' : 'bg-white border-slate-200 text-slate-500 hover:border-violet-200'}`}>
+              <Clock className="h-3 w-3 inline mr-1" />
+              {new Date(h.created_at).toLocaleDateString()}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Results */}
+      <AnimatePresence>
+      {data && (
+        <motion.div key={data.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+
+          {/* KPI row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Social Score',        val: data.social_score,       icon: TrendingUp, grad: 'from-violet-500 to-purple-600' },
+              { label: 'Profile Completeness', val: `${data.profile_completeness}%`, icon: CheckCircle, grad: 'from-emerald-500 to-teal-500' },
+              { label: 'Platforms Found',      val: data.platforms_found,   icon: Share2,     grad: 'from-cyan-500 to-blue-500'    },
+              { label: 'Missing Elements',     val: missing.length,         icon: AlertTriangle, grad: 'from-amber-500 to-orange-500' },
+            ].map((k, i) => (
+              <motion.div key={k.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+                className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${k.grad} text-white shadow`}>
+                  <k.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-extrabold text-slate-800">{k.val}</p>
+                  <p className="text-xs text-slate-400">{k.label}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="flex border-b border-slate-100 px-4 pt-4 gap-1 overflow-x-auto">
+              {[
+                { id: 'overview',  label: 'Overview',          icon: BarChart2    },
+                { id: 'platforms', label: 'Platform Details',   icon: Share2       },
+                { id: 'missing',   label: 'Missing Elements',   icon: AlertTriangle },
+                { id: 'growth',    label: 'Growth Suggestions', icon: Lightbulb    },
+              ].map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl border-b-2 whitespace-nowrap transition-all ${tab === t.id ? 'border-violet-500 text-violet-600 bg-violet-50/60' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                  <t.icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="p-5">
+              <AnimatePresence mode="wait">
+
+                {/* Overview */}
+                {tab === 'overview' && (
+                  <motion.div key="ov" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="grid md:grid-cols-2 gap-6">
+                    {/* Ring + score */}
+                    <div className="flex flex-col items-center gap-4 py-4">
+                      <Ring score={data.social_score} size={140} />
+                      <div className="text-center">
+                        <p className="text-lg font-extrabold text-slate-800">{scoreLabel(data.social_score)} Social Presence</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Based on {data.platforms_analyzed} platform(s) analysed</p>
+                      </div>
+                    </div>
+                    {/* Per-platform bars */}
+                    <div className="space-y-4 py-4">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Platform Completeness</p>
+                      {PLATFORMS.map(({ key, label, Icon, grad }) => {
+                        const score = perScores[key] || 0;
+                        return (
+                          <div key={key}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className={`h-6 w-6 flex items-center justify-center rounded-md bg-gradient-to-br ${grad} text-white`}>
+                                <Icon className="h-3 w-3" />
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700 flex-1">{label}</span>
+                              <span className="text-xs font-bold" style={{ color: scoreColor(score) }}>{score}%</span>
+                            </div>
+                            <MiniBar pct={score} color={`bg-gradient-to-r ${grad}`} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Platform details */}
+                {tab === 'platforms' && (
+                  <motion.div key="pl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    {/* Platform selector */}
+                    <div className="flex gap-2 mb-5 flex-wrap">
+                      {PLATFORMS.map(({ key, label, Icon, grad }) => (
+                        <button key={key} onClick={() => setSelected(key)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${selected === key ? 'bg-violet-50 border-violet-300 text-violet-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-200'}`}>
+                          <div className={`h-5 w-5 flex items-center justify-center rounded bg-gradient-to-br ${grad} text-white`}>
+                            <Icon className="h-2.5 w-2.5" />
+                          </div>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Selected platform detail */}
+                    {(() => {
+                      const res = platformResult(selected);
+                      const plat = PLATFORMS.find(p => p.key === selected);
+                      if (!res) return (
+                        <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 p-8 text-center">
+                          <plat.Icon className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-sm text-slate-400">No URL provided for {plat.label}</p>
+                        </div>
+                      );
+                      return (
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                          {/* Header */}
+                          <div className="flex items-center gap-3">
+                            <div className={`h-12 w-12 flex items-center justify-center rounded-xl bg-gradient-to-br ${plat.grad} text-white shadow`}>
+                              <plat.Icon className="h-6 w-6" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-slate-800">{plat.label} Profile</h3>
+                              <a href={res.url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-violet-500 hover:underline">{res.url}</a>
+                            </div>
+                            <div className="ml-auto">
+                              <Ring score={res.completeness_score} size={72} />
+                            </div>
+                          </div>
+
+                          {/* Booleans */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {[
+                              { label: 'Reachable',       val: res.reachable,            yes: 'Reachable',    no: 'Not Reachable'    },
+                              { label: 'Profile Found',   val: res.profile_found,        yes: 'Found',        no: 'Not Found'        },
+                              { label: 'Bio / About',     val: res.has_bio,              yes: 'Present',      no: 'Missing'          },
+                              { label: 'Contact Info',    val: res.has_contact,          yes: 'Found',        no: 'Missing'          },
+                              { label: 'Website Link',    val: res.has_website_link,     yes: 'Set',          no: 'Missing'          },
+                              { label: 'Recent Activity', val: res.has_recent_activity,  yes: 'Active',       no: 'Inactive'         },
+                            ].map(({ label, val, yes, no }) => (
+                              <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-1">{label}</p>
+                                <BoolChip v={val} yes={yes} no={no} />
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Stats */}
+                          {(res.followers || res.posts_count || res.posting_frequency) && (
+                            <div className="grid grid-cols-3 gap-3">
+                              {res.followers && (
+                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                  <p className="text-[10px] text-slate-400 font-medium uppercase mb-1">Followers</p>
+                                  <p className="text-lg font-extrabold text-slate-800">{res.followers}</p>
+                                </div>
+                              )}
+                              {res.posts_count && (
+                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                  <p className="text-[10px] text-slate-400 font-medium uppercase mb-1">Posts</p>
+                                  <p className="text-lg font-extrabold text-slate-800">{res.posts_count}</p>
+                                </div>
+                              )}
+                              {res.posting_frequency && (
+                                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                                  <p className="text-[10px] text-slate-400 font-medium uppercase mb-1">Frequency</p>
+                                  <p className="text-xs font-bold text-slate-700 mt-1">{res.posting_frequency}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Strengths & Issues */}
+                          <div className="grid sm:grid-cols-2 gap-4">
+                            {res.strengths?.length > 0 && (
+                              <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+                                <p className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Strengths</p>
+                                <ul className="space-y-1">
+                                  {res.strengths.map((s, i) => <li key={i} className="text-xs text-emerald-800">• {s}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {res.issues?.length > 0 && (
+                              <div className="rounded-xl bg-red-50 border border-red-100 p-4">
+                                <p className="text-xs font-bold text-red-600 mb-2 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Issues</p>
+                                <ul className="space-y-1">
+                                  {res.issues.map((s, i) => <li key={i} className="text-xs text-red-800">• {s}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
+                  </motion.div>
+                )}
+
+                {/* Missing elements */}
+                {tab === 'missing' && (
+                  <motion.div key="miss" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                    {missing.length === 0
+                      ? <p className="text-sm text-emerald-600 flex items-center gap-2 py-4"><CheckCircle className="h-4 w-4" />No missing elements detected — all profiles are well-configured!</p>
+                      : missing.map((m, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+                            className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-100 p-3.5">
+                            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-sm text-slate-700">{m}</p>
+                          </motion.div>
+                        ))}
+                  </motion.div>
+                )}
+
+                {/* Growth suggestions */}
+                {tab === 'growth' && (
+                  <motion.div key="grow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                    {suggests.map((s, i) => (
+                      <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                        className="flex items-start gap-3 rounded-xl bg-violet-50 border border-violet-100 p-3.5">
+                        <TrendingUp className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+                        <p className="text-sm text-slate-700 leading-relaxed">{s}</p>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+
+              </AnimatePresence>
+            </div>
+          </div>
+
+        </motion.div>
+      )}
+      </AnimatePresence>
+
+      {/* Empty state */}
+      {!data && !loading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 flex flex-col items-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-violet-600 text-white shadow-lg mb-4">
+            <Share2 className="h-8 w-8" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-2">Analyse Your Social Media Presence</h2>
+          <p className="text-sm text-slate-400 max-w-md">Enter your Facebook, Instagram, LinkedIn or YouTube profile URLs above to get a comprehensive audit including profile completeness, bio availability, contact info, website links, recent activity, and a Social Score (0–100).</p>
+        </motion.div>
+      )}
     </div>
   );
 };

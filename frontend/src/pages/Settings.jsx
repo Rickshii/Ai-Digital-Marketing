@@ -42,8 +42,17 @@ const Settings = () => {
   const [section, setSection] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [showPass, setShowPass] = useState(false);
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(() => localStorage.getItem('user_theme') || 'purple');
   const [notifs, setNotifs] = useState({ email: true, push: true, reports: true, tips: false, marketing: false });
+
+  const handleThemeChange = (themeId) => {
+    setTheme(themeId);
+    localStorage.setItem('user_theme', themeId);
+    document.body.classList.remove('theme-purple', 'theme-dark', 'theme-blue', 'theme-green', 'theme-light');
+    document.body.classList.add(`theme-${themeId}`);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -212,31 +221,31 @@ const Settings = () => {
                   <h2 className="text-base font-bold text-slate-800">Appearance</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Customize the look and feel of your dashboard</p>
                 </div>
+                {saved && (
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" /> Theme preferences saved successfully!
+                  </div>
+                )}
                 <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Theme</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Theme Selection</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {[
-                      { id: 'light', label: 'Light Mode', icon: Sun, desc: 'Clean white interface' },
-                      { id: 'dark', label: 'Dark Mode', icon: Moon, desc: 'Easy on the eyes' },
+                      { id: 'purple', label: 'Purple Theme', icon: Palette, desc: 'Vibrant violet & indigo dashboard' },
+                      { id: 'dark', label: 'Dark Mode', icon: Moon, desc: 'Sleek dark-slate workspace' },
+                      { id: 'blue', label: 'Ocean Blue', icon: Globe, desc: 'Dynamic cyan & blue highlights' },
+                      { id: 'green', label: 'Forest Green', icon: Zap, desc: 'Harmonious green & emerald theme' },
+                      { id: 'light', label: 'Classic Light', icon: Sun, desc: 'Crisp layout with light borders' },
                     ].map(t => (
-                      <button key={t.id} onClick={() => setTheme(t.id)}
-                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all ${theme === t.id ? 'border-violet-300 bg-violet-50 ring-2 ring-violet-100' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <button key={t.id} onClick={() => handleThemeChange(t.id)}
+                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition-all ${theme === t.id ? 'border-violet-300 bg-violet-50/50 ring-2 ring-violet-100' : 'border-slate-100 hover:border-slate-200'}`}>
                         <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${theme === t.id ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                           <t.icon className="h-5 w-5" />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-slate-800">{t.label}</p>
-                          <p className="text-xs text-slate-400">{t.desc}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{t.desc}</p>
                         </div>
                       </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Accent Color</p>
-                  <div className="flex gap-3">
-                    {['bg-violet-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500'].map(c => (
-                      <button key={c} className={`h-8 w-8 rounded-full ${c} ring-2 ring-offset-2 ring-transparent hover:ring-slate-300 transition-all`} />
                     ))}
                   </div>
                 </div>

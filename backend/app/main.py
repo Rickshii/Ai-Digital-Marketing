@@ -7,16 +7,18 @@ from app.core.database import engine, Base
 from app.models.user import User
 from app.models.business import BusinessProfile
 from app.models.audit import WebsiteAudit
+from app.models.social_media import SocialMediaAnalysis
 
 # Dynamically create tables on startup for simplicity in testing
 Base.metadata.create_all(bind=engine)
 
 from app.api import auth, business, audit
+from app.api import social_media
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="AI-powered Digital Marketing Consultant SaaS Platform.",
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -41,14 +43,17 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(business.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
+app.include_router(social_media.router, prefix="/api")
 
 @app.get("/")
 def read_root():
     return {
-        "message": f"Welcome to {settings.PROJECT_NAME} API",
+        "message": f"Welcome to {settings.PROJECT_NAME} API v2.0",
         "documentation": "/docs",
-        "status": "healthy"
+        "status": "healthy",
+        "modules": ["auth", "business", "seo-audit", "social-media"]
     }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
