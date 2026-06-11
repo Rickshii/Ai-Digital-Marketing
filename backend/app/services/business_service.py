@@ -69,20 +69,13 @@ class BusinessService:
         profile_data = profile_in.model_dump()
         score, missing, suggestions = analyze_business_profile(profile_data)
         
+        # Create profile with all fields from profile_data
         db_profile = BusinessProfile(
             user_id=user_id,
-            business_name=profile_data["business_name"],
-            industry_type=profile_data["industry_type"],
-            website_url=profile_data["website_url"],
-            business_location=profile_data["business_location"],
-            target_audience=profile_data["target_audience"],
-            description=profile_data["description"],
-            contact_number=profile_data["contact_number"],
-            email=profile_data["email"],
-            social_media_links=profile_data["social_media_links"],
             completeness_score=score,
             missing_info_report=missing,
-            improvement_suggestions=suggestions
+            improvement_suggestions=suggestions,
+            **{k: v for k, v in profile_data.items() if k not in ["completeness_score", "missing_info_report", "improvement_suggestions"]}
         )
         db.add(db_profile)
         db.commit()
@@ -98,15 +91,9 @@ class BusinessService:
         # Merge changes
         update_data = profile_in.model_dump(exclude_unset=True)
         current_data = {
-            "business_name": db_profile.business_name,
-            "industry_type": db_profile.industry_type,
-            "website_url": db_profile.website_url,
-            "business_location": db_profile.business_location,
-            "target_audience": db_profile.target_audience,
-            "description": db_profile.description,
-            "contact_number": db_profile.contact_number,
-            "email": db_profile.email,
-            "social_media_links": db_profile.social_media_links,
+            c.name: getattr(db_profile, c.name) 
+            for c in db_profile.__table__.columns 
+            if c.name not in ["id", "user_id", "completeness_score", "missing_info_report", "improvement_suggestions", "created_at", "updated_at"]
         }
         current_data.update(update_data)
         

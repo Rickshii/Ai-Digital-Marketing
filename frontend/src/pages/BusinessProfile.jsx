@@ -4,16 +4,50 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Check, AlertTriangle, Globe, Phone, Mail,
   MapPin, Users, Sparkles, ChevronRight, ChevronLeft, Briefcase,
-  Edit2, Save, TrendingUp, Calendar, Loader, X
+  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2
 } from 'lucide-react';
 
-const STEPS = ['Business Info', 'Contact & Location', 'Social Media', 'Review'];
+const STEPS = ['Business Info', 'Contact & Location', 'Social & Google', 'Branches & Review'];
+
+/* ─── SVG brand icons ─── */
+const FbIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+const IgIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <rect x="2" y="2" width="20" height="20" rx="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+const LiIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+    <rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" />
+  </svg>
+);
+const YtIcon = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
+    <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" />
+  </svg>
+);
+
+const socialMeta = {
+  facebook:  { label: 'Facebook',  Icon: FbIcon, color: 'text-[#1877F2] bg-blue-50 border-blue-100 hover:bg-blue-100' },
+  instagram: { label: 'Instagram', Icon: IgIcon, color: 'text-[#E4405F] bg-pink-50 border-pink-100 hover:bg-pink-100' },
+  linkedin:  { label: 'LinkedIn',  Icon: LiIcon, color: 'text-[#0A66C2] bg-sky-50 border-sky-100 hover:bg-sky-100' },
+  youtube:   { label: 'YouTube',   Icon: YtIcon, color: 'text-[#FF0000] bg-red-50 border-red-100 hover:bg-red-100' },
+  twitter:   { label: 'Twitter',   Icon: Globe,  color: 'text-slate-700 bg-slate-50 border-slate-200 hover:bg-slate-100' }
+};
 
 const ScoreRing = ({ score }) => {
   const r = 40, c = 2 * Math.PI * r;
   const color = score >= 80 ? '#10B981' : score >= 50 ? '#F59E0B' : '#8B5CF6';
   return (
-    <div className="relative flex items-center justify-center" style={{ width: 100, height: 100 }}>
+    <div className="relative flex items-center justify-center shrink-0" style={{ width: 100, height: 100 }}>
       <svg width="100" height="100" viewBox="0 0 100 100" className="-rotate-90">
         <circle cx="50" cy="50" r={r} fill="none" stroke="#f1f5f9" strokeWidth="8" />
         <motion.circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="8"
@@ -35,13 +69,13 @@ const StepDot = ({ step, current, label }) => {
   return (
     <div className="flex flex-col items-center gap-1">
       <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-all ${
-        done ? 'bg-violet-500 border-violet-500 text-white' :
-        active ? 'border-violet-500 text-violet-600 bg-violet-50' :
-        'border-slate-200 text-slate-400 bg-white'
+        done ? 'bg-emerald-500 border-emerald-500 text-white' :
+        active ? 'border-white text-white bg-white/20' :
+        'border-white/30 text-white/60 bg-transparent'
       }`}>
         {done ? <Check className="h-4 w-4" /> : step + 1}
       </div>
-      <span className={`text-[10px] font-semibold hidden sm:block ${active ? 'text-violet-600' : 'text-slate-400'}`}>{label}</span>
+      <span className={`text-[10px] font-semibold hidden sm:block ${active ? 'text-white' : 'text-white/60'}`}>{label}</span>
     </div>
   );
 };
@@ -75,9 +109,13 @@ const BusinessProfile = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   const [form, setForm] = useState({
-    business_name: '', industry_type: '', website_url: '', description: '',
-    business_location: '', target_audience: '', contact_number: '', email: '',
-    social_media_links: { linkedin: '', twitter: '', facebook: '', instagram: '' }
+    business_name: '', business_category: '', industry_type: '', website_url: '', description: '',
+    business_address: '', city: '', state: '', country: 'India', pincode: '',
+    google_profile_registered: 'No', google_maps_link: '',
+    number_of_branches: '', branch_locations: '',
+    contact_number: '', email: '', whatsapp_number: '',
+    target_audience: '',
+    social_media_links: { linkedin: '', twitter: '', facebook: '', instagram: '', youtube: '' }
   });
 
   useEffect(() => {
@@ -91,25 +129,50 @@ const BusinessProfile = () => {
   const setSocial = (k, v) => setForm(p => ({ ...p, social_media_links: { ...p.social_media_links, [k]: v } }));
 
   const liveScore = () => {
-    const fields = [form.business_name, form.industry_type, form.website_url, form.description,
-      form.business_location, form.target_audience, form.contact_number, form.email,
+    const fields = [
+      form.business_name, form.industry_type, form.website_url, form.description,
+      form.business_address, form.city, form.state, form.pincode,
+      form.google_profile_registered, form.google_maps_link, form.number_of_branches,
+      form.contact_number, form.email, form.whatsapp_number, form.target_audience,
       form.social_media_links.linkedin, form.social_media_links.twitter,
-      form.social_media_links.facebook, form.social_media_links.instagram];
+      form.social_media_links.facebook, form.social_media_links.instagram, form.social_media_links.youtube
+    ];
     const filled = fields.filter(Boolean).length;
     return Math.round((filled / fields.length) * 100);
   };
 
   const openWizard = () => {
-    setForm({ business_name: '', industry_type: '', website_url: '', description: '',
-      business_location: '', target_audience: '', contact_number: '', email: '',
-      social_media_links: { linkedin: '', twitter: '', facebook: '', instagram: '' } });
+    setForm({
+      business_name: '', business_category: '', industry_type: '', website_url: '', description: '',
+      business_address: '', city: '', state: '', country: 'India', pincode: '',
+      google_profile_registered: 'No', google_maps_link: '',
+      number_of_branches: '', branch_locations: '',
+      contact_number: '', email: '', whatsapp_number: '',
+      target_audience: '',
+      social_media_links: { linkedin: '', twitter: '', facebook: '', instagram: '', youtube: '' }
+    });
     setStep(0); setError(''); setEditMode(false); setShowWizard(true);
   };
 
   const handleSubmit = async () => {
     setError(''); setSubmitting(true);
     try {
-      const profile = await businessAPI.createProfile(form);
+      // Format full location string
+      let finalLocation = '';
+      if (form.business_address || form.city || form.state || form.pincode) {
+        finalLocation = [form.business_address, form.city, form.state, form.country].filter(Boolean).join(', ');
+        if (form.pincode) finalLocation += ` - ${form.pincode}`;
+      } else {
+        finalLocation = form.country || 'India';
+      }
+
+      const payload = {
+        ...form,
+        business_location: finalLocation,
+        number_of_branches: form.number_of_branches ? parseInt(form.number_of_branches) : 0
+      };
+
+      const profile = await businessAPI.createProfile(payload);
       setProfiles(p => [profile, ...p]);
       setSelected(profile);
       setShowWizard(false);
@@ -122,18 +185,29 @@ const BusinessProfile = () => {
   const startEditMode = (profile) => {
     setEditForm({
       business_name: profile.business_name || '',
+      business_category: profile.business_category || '',
       industry_type: profile.industry_type || '',
       website_url: profile.website_url || '',
       description: profile.description || '',
-      business_location: profile.business_location || '',
-      target_audience: profile.target_audience || '',
+      business_address: profile.business_address || '',
+      city: profile.city || '',
+      state: profile.state || '',
+      country: profile.country || 'India',
+      pincode: profile.pincode || '',
+      google_profile_registered: profile.google_profile_registered || 'No',
+      google_maps_link: profile.google_maps_link || '',
+      number_of_branches: profile.number_of_branches || 0,
+      branch_locations: profile.branch_locations || '',
       contact_number: profile.contact_number || '',
       email: profile.email || '',
+      whatsapp_number: profile.whatsapp_number || '',
+      target_audience: profile.target_audience || '',
       social_media_links: {
         linkedin: profile.social_media_links?.linkedin || '',
         twitter: profile.social_media_links?.twitter || '',
         facebook: profile.social_media_links?.facebook || '',
-        instagram: profile.social_media_links?.instagram || ''
+        instagram: profile.social_media_links?.instagram || '',
+        youtube: profile.social_media_links?.youtube || ''
       }
     });
     setError('');
@@ -150,7 +224,22 @@ const BusinessProfile = () => {
     }
     setError(''); setSubmitting(true);
     try {
-      const updated = await businessAPI.updateProfile(selected.id, editForm);
+      // Format full location string
+      let finalLocation = '';
+      if (editForm.business_address || editForm.city || editForm.state || editForm.pincode) {
+        finalLocation = [editForm.business_address, editForm.city, editForm.state, editForm.country].filter(Boolean).join(', ');
+        if (editForm.pincode) finalLocation += ` - ${editForm.pincode}`;
+      } else {
+        finalLocation = editForm.country || 'India';
+      }
+
+      const payload = {
+        ...editForm,
+        business_location: finalLocation,
+        number_of_branches: editForm.number_of_branches ? parseInt(editForm.number_of_branches) : 0
+      };
+
+      const updated = await businessAPI.updateProfile(selected.id, payload);
       setProfiles(prev => prev.map(p => p.id === selected.id ? updated : p));
       setSelected(updated);
       setEditMode(false);
@@ -191,8 +280,8 @@ const BusinessProfile = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800">Business Analysis</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Configure business profiles to generate AI marketing scores</p>
+          <h1 className="text-2xl font-extrabold text-slate-800">Business Profile</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Configure and inspect business profile details, locations, and social links</p>
         </div>
         <motion.button onClick={openWizard} whileTap={{ scale: 0.97 }}
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 hover:opacity-95 transition-all">
@@ -272,47 +361,139 @@ const BusinessProfile = () => {
 
                 {error && <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs text-red-600">{error}</div>}
 
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="Business Name" icon={Briefcase} required>
-                      <input type="text" value={editForm.business_name} onChange={e => setEditField('business_name', e.target.value)} />
-                    </Field>
-                    <Field label="Industry Type" required>
-                      <input type="text" value={editForm.industry_type} onChange={e => setEditField('industry_type', e.target.value)} />
-                    </Field>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="Website URL" icon={Globe}>
-                      <input type="url" value={editForm.website_url} onChange={e => setEditField('website_url', e.target.value)} />
-                    </Field>
-                    <Field label="Location" icon={MapPin}>
-                      <input type="text" value={editForm.business_location} onChange={e => setEditField('business_location', e.target.value)} />
-                    </Field>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Field label="Contact Email" icon={Mail}>
-                      <input type="email" value={editForm.email} onChange={e => setEditField('email', e.target.value)} />
-                    </Field>
-                    <Field label="Contact Phone" icon={Phone}>
-                      <input type="tel" value={editForm.contact_number} onChange={e => setEditField('contact_number', e.target.value)} />
-                    </Field>
-                  </div>
-
-                  <Field label="Target Audience" icon={Users}>
-                    <input type="text" value={editForm.target_audience} onChange={e => setEditField('target_audience', e.target.value)} />
-                  </Field>
-
-                  <Field label="Business Description">
-                    <textarea rows={3} value={editForm.description} onChange={e => setEditField('description', e.target.value)} className="resize-none" />
-                  </Field>
-
-                  {/* Social Links */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
+                  {/* Business Information Section */}
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Social Media Links</p>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Briefcase className="h-4 w-4 text-violet-500" /> Business Details</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="Business Name" icon={Briefcase} required>
+                        <input type="text" value={editForm.business_name} onChange={e => setEditField('business_name', e.target.value)} />
+                      </Field>
+                      <Field label="Business Category">
+                        <select value={editForm.business_category} onChange={e => setEditField('business_category', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none">
+                          <option value="">Select Category</option>
+                          <option value="SaaS / Technology">SaaS / Technology</option>
+                          <option value="E-commerce / Retail">E-commerce / Retail</option>
+                          <option value="Professional Services">Professional Services</option>
+                          <option value="Healthcare / Wellness">Healthcare / Wellness</option>
+                          <option value="Real Estate">Real Estate</option>
+                          <option value="Food & Beverage">Food & Beverage</option>
+                          <option value="Education">Education</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </Field>
+                      <Field label="Industry Type" required>
+                        <select value={editForm.industry_type} onChange={e => setEditField('industry_type', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none">
+                          <option value="">Select Industry Type</option>
+                          <option value="B2B">B2B</option>
+                          <option value="B2C">B2C</option>
+                          <option value="D2C">D2C</option>
+                          <option value="Local Service">Local Service</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </Field>
+                      <Field label="Website URL" icon={Globe}>
+                        <input type="url" value={editForm.website_url} onChange={e => setEditField('website_url', e.target.value)} />
+                      </Field>
+                      <div className="sm:col-span-2">
+                        <Field label="Target Audience" icon={Users}>
+                          <input type="text" value={editForm.target_audience} onChange={e => setEditField('target_audience', e.target.value)} />
+                        </Field>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <Field label="Business Description">
+                          <textarea rows={3} value={editForm.description} onChange={e => setEditField('description', e.target.value)} className="resize-none" />
+                        </Field>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info Section */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Mail className="h-4 w-4 text-violet-500" /> Contact Details</h4>
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <Field label="Email" icon={Mail}>
+                        <input type="email" value={editForm.email} onChange={e => setEditField('email', e.target.value)} />
+                      </Field>
+                      <Field label="Contact Phone" icon={Phone}>
+                        <input type="tel" value={editForm.contact_number} onChange={e => setEditField('contact_number', e.target.value)} />
+                      </Field>
+                      <Field label="WhatsApp Number" icon={Phone}>
+                        <input type="tel" value={editForm.whatsapp_number} onChange={e => setEditField('whatsapp_number', e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Location Details Section */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-violet-500" /> Business Location</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <Field label="Street Address" icon={MapPin}>
+                          <input type="text" value={editForm.business_address} onChange={e => setEditField('business_address', e.target.value)} />
+                        </Field>
+                      </div>
+                      <Field label="City">
+                        <input type="text" value={editForm.city} onChange={e => setEditField('city', e.target.value)} />
+                      </Field>
+                      <Field label="State">
+                        <input type="text" value={editForm.state} onChange={e => setEditField('state', e.target.value)} />
+                      </Field>
+                      <Field label="Country">
+                        <input type="text" value={editForm.country} onChange={e => setEditField('country', e.target.value)} />
+                      </Field>
+                      <Field label="Pincode">
+                        <input type="text" value={editForm.pincode} onChange={e => setEditField('pincode', e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Google Profile Status Section */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Globe className="h-4 w-4 text-violet-500" /> Google Business Details</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Google Profile Registered?</label>
+                        <div className="flex gap-4 items-center h-[42px]">
+                          {['Yes', 'No'].map(opt => (
+                            <label key={opt} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                name="googleProfileEdit" 
+                                value={opt} 
+                                checked={editForm.google_profile_registered === opt}
+                                onChange={() => setEditField('google_profile_registered', opt)}
+                                className="text-violet-600 focus:ring-violet-400"
+                              />
+                              <span>{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <Field label="Google Maps Location Link" icon={Link2}>
+                        <input type="url" value={editForm.google_maps_link} onChange={e => setEditField('google_maps_link', e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Branches Section */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Building2 className="h-4 w-4 text-violet-500" /> Branches & Scale</h4>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="Number of Branches">
+                        <input type="number" min="0" value={editForm.number_of_branches} onChange={e => setEditField('number_of_branches', e.target.value)} />
+                      </Field>
+                      <Field label="Branch Locations">
+                        <input type="text" value={editForm.branch_locations} onChange={e => setEditField('branch_locations', e.target.value)} placeholder="Mumbai, Delhi, Bangalore" />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {/* Social Links Section */}
+                  <div className="border-t border-slate-100 pt-6">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Social Media Links</p>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {['linkedin', 'twitter', 'facebook', 'instagram'].map(p => (
+                      {['linkedin', 'twitter', 'facebook', 'instagram', 'youtube'].map(p => (
                         <Field key={p} label={p.charAt(0).toUpperCase() + p.slice(1)} icon={Globe}>
                           <input type="url" value={editForm.social_media_links?.[p] || ''} onChange={e => setEditSocialField(p, e.target.value)} />
                         </Field>
@@ -341,6 +522,141 @@ const BusinessProfile = () => {
                         {selected.website_url && <a href={selected.website_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-violet-600"><Globe className="h-3.5 w-3.5" />{selected.website_url}</a>}
                         {selected.business_location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{selected.business_location}</span>}
                         {selected.email && <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{selected.email}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Profile Info Grid */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  
+                  {/* Business Details Card */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                      <Briefcase className="h-4 w-4 text-violet-500" /> Business details
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Category:</span>
+                        <span className="font-semibold text-slate-800">{selected.business_category || 'Not specified'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Industry Type:</span>
+                        <span className="font-semibold text-slate-800">{selected.industry_type || 'Not specified'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Website URL:</span>
+                        {selected.website_url ? (
+                          <a href={selected.website_url} target="_blank" rel="noreferrer" className="font-semibold text-violet-600 hover:underline truncate max-w-[150px]">{selected.website_url}</a>
+                        ) : (
+                          <span className="text-slate-400">Not specified</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Target Audience:</span>
+                        <span className="font-semibold text-slate-800 truncate max-w-[150px]">{selected.target_audience || 'Not specified'}</span>
+                      </div>
+                      <div className="text-xs pt-1 border-t border-slate-50 mt-1">
+                        <span className="text-slate-400 block mb-1">Description:</span>
+                        <p className="text-slate-600 bg-slate-50 rounded-xl p-2.5 leading-relaxed text-[11px] max-h-24 overflow-y-auto">{selected.description || 'No description added yet.'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info Card */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                      <Mail className="h-4 w-4 text-violet-500" /> Contact details
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Business Email:</span>
+                        <span className="font-semibold text-slate-800">{selected.email || 'Not specified'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Contact Number:</span>
+                        <span className="font-semibold text-slate-800">{selected.contact_number || 'Not specified'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">WhatsApp Business:</span>
+                        <span className="font-semibold text-slate-800">{selected.whatsapp_number || 'Not specified'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Google Profile Card */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                      <Globe className="h-4 w-4 text-violet-500" /> Google Business Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Profile Registered:</span>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${selected.google_profile_registered === 'Yes' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {selected.google_profile_registered || 'No'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Maps Link:</span>
+                        {selected.google_maps_link ? (
+                          <a href={selected.google_maps_link} target="_blank" rel="noreferrer" className="font-semibold text-violet-600 hover:underline flex items-center gap-1"><Link2 className="h-3 w-3" /> View Maps Link</a>
+                        ) : (
+                          <span className="text-slate-400">Not specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Branches & Scale Card */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                      <Building2 className="h-4 w-4 text-violet-500" /> Branches & Scale
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-slate-400">Number of Branches:</span>
+                        <span className="font-semibold text-slate-800">{selected.number_of_branches || 0}</span>
+                      </div>
+                      <div className="text-xs pt-1 border-t border-slate-50 mt-1">
+                        <span className="text-slate-400 block mb-1">Branch Locations:</span>
+                        <p className="text-slate-600 bg-slate-50 rounded-xl p-2.5 leading-relaxed text-[11px] max-h-24 overflow-y-auto">{selected.branch_locations || 'No other branch locations listed.'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Physical Location Card */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4 sm:col-span-2">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                      <MapPin className="h-4 w-4 text-violet-500" /> Physical Location Details
+                    </h3>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Street Address:</span>
+                          <span className="font-semibold text-slate-800 text-right max-w-[180px] truncate">{selected.business_address || 'Not specified'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">City:</span>
+                          <span className="font-semibold text-slate-800">{selected.city || 'Not specified'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">State:</span>
+                          <span className="font-semibold text-slate-800">{selected.state || 'Not specified'}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Country:</span>
+                          <span className="font-semibold text-slate-800">{selected.country || 'Not specified'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Pincode:</span>
+                          <span className="font-semibold text-slate-800">{selected.pincode || 'Not specified'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Full Address String:</span>
+                          <span className="font-semibold text-slate-800 text-right max-w-[150px] truncate" title={selected.business_location}>{selected.business_location || 'Not specified'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -393,20 +709,24 @@ const BusinessProfile = () => {
                     )}
                   </div>
 
-                  {/* Social Media */}
+                  {/* Social Channels Card */}
                   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                     <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-3">
                       <Users className="h-4 w-4 text-violet-500" /> Social Channels
                     </h3>
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(selected.social_media_links || {}).map(([platform, url]) =>
-                        url ? (
+                      {Object.entries(selected.social_media_links || {}).map(([platform, url]) => {
+                        if (!url) return null;
+                        const meta = socialMeta[platform] || socialMeta.twitter;
+                        const MetaIcon = meta.Icon;
+                        return (
                           <a key={platform} href={url} target="_blank" rel="noreferrer"
-                            className="text-xs font-semibold bg-violet-50 text-violet-600 border border-violet-100 rounded-lg px-2.5 py-1 capitalize hover:bg-violet-100 transition-all">
-                            {platform}
+                            className={`flex items-center gap-1.5 text-xs font-semibold border rounded-xl px-3 py-1.5 transition-all ${meta.color}`}>
+                            <MetaIcon className="h-3.5 w-3.5 shrink-0" />
+                            {meta.label}
                           </a>
-                        ) : null
-                      )}
+                        );
+                      })}
                       {!Object.values(selected.social_media_links || {}).some(Boolean) && (
                         <p className="text-xs text-slate-400">No social links added.</p>
                       )}
@@ -439,7 +759,7 @@ const BusinessProfile = () => {
       <AnimatePresence>
         {showWizard && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               className="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden">
 
@@ -472,7 +792,7 @@ const BusinessProfile = () => {
               </div>
 
               {/* Wizard Body */}
-              <div className="px-6 pb-4 max-h-72 overflow-y-auto">
+              <div className="px-6 pb-4 max-h-[50vh] overflow-y-auto">
                 <AnimatePresence mode="wait">
                   {step === 0 && (
                     <motion.div key="s0" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
@@ -480,59 +800,139 @@ const BusinessProfile = () => {
                         <Field label="Business Name" icon={Briefcase} required>
                           <input type="text" value={form.business_name} onChange={e => set('business_name', e.target.value)} placeholder="Acme Agency" />
                         </Field>
-                        <Field label="Industry Type" required>
-                          <input type="text" value={form.industry_type} onChange={e => set('industry_type', e.target.value)} placeholder="SaaS / Retail / Healthcare" />
+                        <Field label="Business Category">
+                          <select value={form.business_category} onChange={e => set('business_category', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:bg-white transition-all">
+                            <option value="">Select Category</option>
+                            <option value="SaaS / Technology">SaaS / Technology</option>
+                            <option value="E-commerce / Retail">E-commerce / Retail</option>
+                            <option value="Professional Services">Professional Services</option>
+                            <option value="Healthcare / Wellness">Healthcare / Wellness</option>
+                            <option value="Real Estate">Real Estate</option>
+                            <option value="Food & Beverage">Food & Beverage</option>
+                            <option value="Education">Education</option>
+                            <option value="Other">Other</option>
+                          </select>
                         </Field>
                       </div>
-                      <Field label="Website URL" icon={Globe}>
-                        <input type="url" value={form.website_url} onChange={e => set('website_url', e.target.value)} placeholder="https://yoursite.com" />
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Field label="Industry Type" required>
+                          <select value={form.industry_type} onChange={e => set('industry_type', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:bg-white transition-all">
+                            <option value="">Select Industry Type</option>
+                            <option value="B2B">B2B</option>
+                            <option value="B2C">B2C</option>
+                            <option value="D2C">D2C</option>
+                            <option value="Local Service">Local Service</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </Field>
+                        <Field label="Website URL" icon={Globe}>
+                          <input type="url" value={form.website_url} onChange={e => set('website_url', e.target.value)} placeholder="https://yoursite.com" />
+                        </Field>
+                      </div>
+                      <Field label="Target Audience" icon={Users}>
+                        <input type="text" value={form.target_audience} onChange={e => set('target_audience', e.target.value)} placeholder="e.g. B2B SaaS founders, eco-conscious shoppers" />
                       </Field>
                       <Field label="Business Description">
-                        <textarea rows={3} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe your business in detail (50+ words recommended)..." className="resize-none" />
+                        <textarea rows={3} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe your business in detail..." className="resize-none" />
                       </Field>
                     </motion.div>
                   )}
                   {step === 1 && (
                     <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                      <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="grid sm:grid-cols-3 gap-4">
                         <Field label="Email" icon={Mail}>
                           <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="info@business.com" />
                         </Field>
                         <Field label="Phone" icon={Phone}>
                           <input type="tel" value={form.contact_number} onChange={e => set('contact_number', e.target.value)} placeholder="+1 555 000-0000" />
                         </Field>
+                        <Field label="WhatsApp Number" icon={Phone}>
+                          <input type="tel" value={form.whatsapp_number} onChange={e => set('whatsapp_number', e.target.value)} placeholder="+1 555 000-0000" />
+                        </Field>
                       </div>
-                      <Field label="Location" icon={MapPin}>
-                        <input type="text" value={form.business_location} onChange={e => set('business_location', e.target.value)} placeholder="San Francisco, CA" />
+                      <Field label="Street Address" icon={MapPin}>
+                        <input type="text" value={form.business_address} onChange={e => set('business_address', e.target.value)} placeholder="123 Growth Blvd, Suite 100" />
                       </Field>
-                      <Field label="Target Audience" icon={Users}>
-                        <input type="text" value={form.target_audience} onChange={e => set('target_audience', e.target.value)} placeholder="e.g. B2B SaaS founders, eco-conscious shoppers" />
-                      </Field>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Field label="City">
+                          <input type="text" value={form.city} onChange={e => set('city', e.target.value)} placeholder="San Francisco" />
+                        </Field>
+                        <Field label="State">
+                          <input type="text" value={form.state} onChange={e => set('state', e.target.value)} placeholder="CA" />
+                        </Field>
+                        <Field label="Country">
+                          <input type="text" value={form.country} onChange={e => set('country', e.target.value)} placeholder="United States" />
+                        </Field>
+                        <Field label="Pincode">
+                          <input type="text" value={form.pincode} onChange={e => set('pincode', e.target.value)} placeholder="94107" />
+                        </Field>
+                      </div>
                     </motion.div>
                   )}
                   {step === 2 && (
                     <motion.div key="s2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                      {['linkedin', 'twitter', 'facebook', 'instagram'].map(p => (
-                        <Field key={p} label={p.charAt(0).toUpperCase() + p.slice(1)} icon={Globe}>
-                          <input type="url" value={form.social_media_links[p]} onChange={e => setSocial(p, e.target.value)} placeholder={`https://${p}.com/yourpage`} />
+                      {/* Google Business Profile Status */}
+                      <div className="border border-slate-100 rounded-2xl bg-slate-50 p-4">
+                        <label className="block text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">Google Business Profile Registered?</label>
+                        <div className="flex gap-4 items-center h-[32px] mb-3">
+                          {['Yes', 'No'].map(opt => (
+                            <label key={opt} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                              <input 
+                                type="radio" 
+                                name="googleProfileWizard" 
+                                value={opt} 
+                                checked={form.google_profile_registered === opt}
+                                onChange={() => set('google_profile_registered', opt)}
+                                className="text-violet-600 focus:ring-violet-400"
+                              />
+                              <span>{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <Field label="Google Maps Location Link" icon={Link2}>
+                          <input type="url" value={form.google_maps_link} onChange={e => set('google_maps_link', e.target.value)} placeholder="https://maps.google.com/..." />
                         </Field>
-                      ))}
+                      </div>
+                      
+                      {/* Social media Links */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Social Media URLs</label>
+                        <div className="space-y-3">
+                          {['facebook', 'instagram', 'linkedin', 'youtube', 'twitter'].map(p => (
+                            <Field key={p} label={p.charAt(0).toUpperCase() + p.slice(1)} icon={Globe}>
+                              <input type="url" value={form.social_media_links[p]} onChange={e => setSocial(p, e.target.value)} placeholder={`https://${p}.com/yourpage`} />
+                            </Field>
+                          ))}
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                   {step === 3 && (
-                    <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-3">
+                    <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Field label="Number of Branches">
+                          <input type="number" min="0" value={form.number_of_branches} onChange={e => set('number_of_branches', e.target.value)} placeholder="e.g. 1" />
+                        </Field>
+                        <Field label="Branch Locations">
+                          <input type="text" value={form.branch_locations} onChange={e => set('branch_locations', e.target.value)} placeholder="Mumbai, Bangalore" />
+                        </Field>
+                      </div>
+
                       {error && <div className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs text-red-600">{error}</div>}
-                      <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 space-y-2">
+                      
+                      <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 space-y-2 max-h-40 overflow-y-auto">
                         {[
                           ['Business', form.business_name],
+                          ['Category', form.business_category],
                           ['Industry', form.industry_type],
                           ['Website', form.website_url],
                           ['Email', form.email],
-                          ['Location', form.business_location],
-                          ['Audience', form.target_audience],
+                          ['Address', form.business_address],
+                          ['Google GBP', form.google_profile_registered],
+                          ['Branches', form.number_of_branches],
                         ].map(([k, v]) => v ? (
                           <div key={k} className="flex items-start gap-2 text-xs">
-                            <span className="text-slate-400 w-20 shrink-0">{k}:</span>
+                            <span className="text-slate-400 w-24 shrink-0">{k}:</span>
                             <span className="font-medium text-slate-800 truncate">{v}</span>
                           </div>
                         ) : null)}
@@ -540,8 +940,8 @@ const BusinessProfile = () => {
                       <div className="flex items-center justify-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100">
                         <ScoreRing score={liveScore()} />
                         <div>
-                          <p className="text-sm font-bold text-slate-800">Estimated Score</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Based on provided information</p>
+                          <p className="text-sm font-bold text-slate-800">Estimated Completeness Score</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Based on provided profile data</p>
                         </div>
                       </div>
                     </motion.div>
@@ -556,14 +956,14 @@ const BusinessProfile = () => {
                   <ChevronLeft className="h-4 w-4" /> {step === 0 ? 'Cancel' : 'Back'}
                 </button>
                 {step < 3 ? (
-                  <button onClick={() => setStep(s => s + 1)} disabled={step === 0 && !form.business_name}
+                  <button onClick={() => setStep(s => s + 1)} disabled={step === 0 && (!form.business_name || !form.industry_type)}
                     className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50 transition-all">
                     Next <ChevronRight className="h-4 w-4" />
                   </button>
                 ) : (
                   <button onClick={handleSubmit} disabled={submitting}
                     className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-50 transition-all">
-                    {submitting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Sparkles className="h-4 w-4" /> Analyze Business</>}
+                    {submitting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Sparkles className="h-4 w-4" /> Create Profile</>}
                   </button>
                 )}
               </div>

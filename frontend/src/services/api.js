@@ -72,21 +72,33 @@ const initMockDB = () => {
     {
       id: 'prof-1',
       business_name: 'Acme SaaS Corp',
-      industry_type: 'Software / B2B SaaS',
+      business_category: 'SaaS / Technology',
+      industry_type: 'B2B',
       website_url: 'https://acme-saas-corp.io',
-      business_location: 'San Francisco, CA',
+      business_location: '600 California St, San Francisco, CA, United States - 94108',
+      business_address: '600 California St',
+      city: 'San Francisco',
+      state: 'CA',
+      country: 'United States',
+      pincode: '94108',
+      google_profile_registered: 'Yes',
+      google_maps_link: 'https://maps.google.com/?q=Acme+SaaS+Corp+San+Francisco',
+      number_of_branches: 2,
+      branch_locations: 'New York, Austin',
       target_audience: 'Mid-Market Marketing Directors & Product Owners',
       description: 'Acme SaaS Corp provides automated cloud optimization software for scaling enterprises. We help organizations cut server costs by up to 45% through intelligent load-balancing and predictive auto-scaling modules.',
       email: 'growth@acmesaas.io',
       contact_number: '+1 (555) 304-2091',
+      whatsapp_number: '+1 (555) 304-2092',
       social_media_links: {
         linkedin: 'https://linkedin.com/company/acmesaas',
         twitter: 'https://twitter.com/acmesaas',
         facebook: 'https://facebook.com/acmesaas',
-        instagram: 'https://instagram.com/acmesaas'
+        instagram: 'https://instagram.com/acmesaas',
+        youtube: 'https://youtube.com/@acmesaas'
       },
-      completeness_score: 92,
-      missing_info_report: ['Facebook Pixel Verification ID'],
+      completeness_score: 95,
+      missing_info_report: [],
       improvement_suggestions: [
         'Establish regular bi-weekly thought leadership articles on LinkedIn targeting Cloud Security to double organically referred SaaS leads.',
         'Launch retargeting ads on Twitter focusing on technical decision-makers with a case study detailing server optimizations.',
@@ -97,30 +109,42 @@ const initMockDB = () => {
       score_history: [
         { score: 70, date: '2026-05-15T09:00:00.000Z' },
         { score: 85, date: '2026-05-25T14:20:00.000Z' },
-        { score: 92, date: '2026-06-05T10:30:00.000Z' }
+        { score: 95, date: '2026-06-05T10:30:00.000Z' }
       ]
     },
     {
       id: 'prof-2',
       business_name: 'Bloom Floral & Co',
-      industry_type: 'Local Retail / E-commerce',
+      business_category: 'E-commerce / Retail',
+      industry_type: 'B2C',
       website_url: 'https://bloomfloral.shop',
-      business_location: 'Austin, TX',
+      business_location: '215 South Congress Ave, Austin, TX, United States - 78704',
+      business_address: '215 South Congress Ave',
+      city: 'Austin',
+      state: 'TX',
+      country: 'United States',
+      pincode: '78704',
+      google_profile_registered: 'No',
+      google_maps_link: '',
+      number_of_branches: 1,
+      branch_locations: 'Houston',
       target_audience: 'Local event planners, brides-to-be, luxury gift shoppers',
       description: 'We craft premium organic botanical arrangements and supply exotic plants for events and retail. We focus on ethical, locally sourced floristry and same-day boutique deliveries.',
       email: 'hello@bloomfloral.shop',
       contact_number: '+1 (512) 808-1122',
+      whatsapp_number: '+1 (512) 808-1123',
       social_media_links: {
         linkedin: '',
         twitter: 'https://twitter.com/bloomfloral',
         facebook: 'https://facebook.com/bloomfloral',
-        instagram: 'https://instagram.com/bloomfloral'
+        instagram: 'https://instagram.com/bloomfloral',
+        youtube: ''
       },
       completeness_score: 74,
-      missing_info_report: ['LinkedIn URL', 'Corporate Email domain verification'],
+      missing_info_report: ['LinkedIn URL', 'YouTube Channel', 'Google Business Profile not registered'],
       improvement_suggestions: [
         'Instagram engagement is high, but link-in-bio traffic is not tagged. Use UTM parameters to measure exact conversions from social media.',
-        'Create a Google Business Profile local products showcase. Upload photos of seasonal catalog weekly to rank higher in regional search results.',
+        'Register a Google Business Profile and upload photos of seasonal catalog weekly to rank higher in regional search results.',
         'The website loads slowly on mobile (3.4s). Compress image assets on the catalog page to improve page response speed and reduce bounce rates.'
       ],
       last_updated: '2026-06-01T12:00:00.000Z',
@@ -333,21 +357,28 @@ export const businessAPI = {
         // Calculate score & reports on client side dynamically
         const missing = [];
         if (!profileData.business_name) missing.push('Business Name');
+        if (!profileData.business_category) missing.push('Business Category');
         if (!profileData.industry_type) missing.push('Industry Type');
         if (!profileData.website_url) missing.push('Website URL');
         if (!profileData.description) missing.push('Business Description');
-        if (!profileData.business_location) missing.push('Physical Business Location');
+        if (!profileData.business_address) missing.push('Street Address');
+        if (!profileData.city) missing.push('City');
+        if (!profileData.state) missing.push('State');
+        if (!profileData.pincode) missing.push('Pincode');
         if (!profileData.target_audience) missing.push('Target Audience Definition');
-        if (!profileData.email) missing.push('Contact Business Email');
-        if (!profileData.contact_number) missing.push('Phone Support Line');
+        if (!profileData.email) missing.push('Business Email');
+        if (!profileData.contact_number) missing.push('Contact Phone');
+        if (!profileData.whatsapp_number) missing.push('WhatsApp Business Number');
+        if (profileData.google_profile_registered !== 'Yes') missing.push('Google Business Profile not registered');
+        if (!profileData.google_maps_link) missing.push('Google Maps Location Link');
         
         const social = profileData.social_media_links || {};
-        if (!social.linkedin) missing.push('LinkedIn Business profile');
-        if (!social.twitter) missing.push('Twitter/X Business account');
         if (!social.facebook) missing.push('Facebook Business page');
         if (!social.instagram) missing.push('Instagram Creator profile');
+        if (!social.linkedin) missing.push('LinkedIn Business profile');
+        if (!social.youtube) missing.push('YouTube Channel');
 
-        const totalFields = 12;
+        const totalFields = 19;
         const filledFields = totalFields - missing.length;
         const completeness = Math.round((filledFields / totalFields) * 100);
 
@@ -393,21 +424,28 @@ export const businessAPI = {
         // Calculate score & reports dynamically
         const missing = [];
         if (!profileData.business_name) missing.push('Business Name');
+        if (!profileData.business_category) missing.push('Business Category');
         if (!profileData.industry_type) missing.push('Industry Type');
         if (!profileData.website_url) missing.push('Website URL');
         if (!profileData.description) missing.push('Business Description');
-        if (!profileData.business_location) missing.push('Physical Business Location');
+        if (!profileData.business_address) missing.push('Street Address');
+        if (!profileData.city) missing.push('City');
+        if (!profileData.state) missing.push('State');
+        if (!profileData.pincode) missing.push('Pincode');
         if (!profileData.target_audience) missing.push('Target Audience Definition');
-        if (!profileData.email) missing.push('Contact Business Email');
-        if (!profileData.contact_number) missing.push('Phone Support Line');
+        if (!profileData.email) missing.push('Business Email');
+        if (!profileData.contact_number) missing.push('Contact Phone');
+        if (!profileData.whatsapp_number) missing.push('WhatsApp Business Number');
+        if (profileData.google_profile_registered !== 'Yes') missing.push('Google Business Profile not registered');
+        if (!profileData.google_maps_link) missing.push('Google Maps Location Link');
         
         const social = profileData.social_media_links || {};
-        if (!social.linkedin) missing.push('LinkedIn Business profile');
-        if (!social.twitter) missing.push('Twitter/X Business account');
         if (!social.facebook) missing.push('Facebook Business page');
         if (!social.instagram) missing.push('Instagram Creator profile');
+        if (!social.linkedin) missing.push('LinkedIn Business profile');
+        if (!social.youtube) missing.push('YouTube Channel');
 
-        const totalFields = 12;
+        const totalFields = 19;
         const filledFields = totalFields - missing.length;
         const completeness = Math.round((filledFields / totalFields) * 100);
 

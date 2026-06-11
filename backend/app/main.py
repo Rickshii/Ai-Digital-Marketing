@@ -12,6 +12,45 @@ from app.models.social_media import SocialMediaAnalysis
 # Dynamically create tables on startup for simplicity in testing
 Base.metadata.create_all(bind=engine)
 
+def upgrade_db_schema():
+    from sqlalchemy import inspect, text
+    from app.core.database import SessionLocal
+    
+    inspector = inspect(engine)
+    if 'business_profiles' not in inspector.get_table_names():
+        return
+        
+    columns = [col['name'] for col in inspector.get_columns('business_profiles')]
+    
+    columns_to_add = [
+        ("business_category", "VARCHAR(255)"),
+        ("business_address", "VARCHAR(255)"),
+        ("city", "VARCHAR(100)"),
+        ("state", "VARCHAR(100)"),
+        ("country", "VARCHAR(100)"),
+        ("pincode", "VARCHAR(20)"),
+        ("google_profile_registered", "VARCHAR(10)"),
+        ("google_maps_link", "VARCHAR(500)"),
+        ("number_of_branches", "INTEGER DEFAULT 0"),
+        ("branch_locations", "TEXT"),
+        ("whatsapp_number", "VARCHAR(50)"),
+    ]
+    
+    db = SessionLocal()
+    try:
+        for col_name, col_type in columns_to_add:
+            if col_name not in columns:
+                db.execute(text(f"ALTER TABLE business_profiles ADD COLUMN {col_name} {col_type}"))
+                db.commit()
+                print(f"Added column {col_name} of type {col_type} to business_profiles.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error checking/migrating schema: {e}")
+    finally:
+        db.close()
+
+upgrade_db_schema()
+
 from app.api import auth, business, audit
 from app.api import social_media
 

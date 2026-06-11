@@ -3,12 +3,17 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from datetime import timedelta
+from pydantic import BaseModel, EmailStr
 
 from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.models.user import User as UserModel
 from app.schemas.user import UserCreate, User as UserSchema, Token, TokenData
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -94,3 +99,21 @@ def logout():
 @router.get("/me", response_model=UserSchema)
 def read_current_user(current_user: UserModel = Depends(get_current_user)):
     return current_user
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Reset password for a registered user (demo mode — no email verification)."""
+    user = db.query(UserModel).filter(UserModel.email == body.email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this email address."
+        )
+    if len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 6 characters."
+        )
+    user.hashed_password = get_password_hash(body.new_password)
+    db.commit()
+    return {"detail": "Password has been reset successfully. You can now log in with your new password."}

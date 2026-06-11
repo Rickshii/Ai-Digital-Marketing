@@ -18,6 +18,19 @@ class BusinessProfile(Base):
     email = Column(String, nullable=True)
     social_media_links = Column(JSON, nullable=True) # Dict of platform -> url
     
+    # New fields from multi-step registration
+    business_category = Column(String, nullable=True)
+    business_address = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    state = Column(String, nullable=True)
+    country = Column(String, nullable=True)
+    pincode = Column(String, nullable=True)
+    google_profile_registered = Column(String, nullable=True) # 'Yes' or 'No'
+    google_maps_link = Column(String, nullable=True)
+    number_of_branches = Column(Integer, default=0, nullable=True)
+    branch_locations = Column(Text, nullable=True)
+    whatsapp_number = Column(String, nullable=True)
+    
     # Calculated metrics
     completeness_score = Column(Integer, default=0)
     missing_info_report = Column(JSON, nullable=True) # List of missing items

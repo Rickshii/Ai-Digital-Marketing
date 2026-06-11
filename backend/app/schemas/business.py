@@ -12,6 +12,19 @@ class BusinessProfileBase(BaseModel):
     contact_number: Optional[str] = None
     email: Optional[EmailStr] = None
     social_media_links: Optional[Dict[str, str]] = None
+    
+    # New fields
+    business_category: Optional[str] = None
+    business_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    pincode: Optional[str] = None
+    google_profile_registered: Optional[str] = None
+    google_maps_link: Optional[str] = None
+    number_of_branches: Optional[int] = None
+    branch_locations: Optional[str] = None
+    whatsapp_number: Optional[str] = None
 
 class BusinessProfileCreate(BusinessProfileBase):
     pass
@@ -26,6 +39,19 @@ class BusinessProfileUpdate(BaseModel):
     contact_number: Optional[str] = None
     email: Optional[EmailStr] = None
     social_media_links: Optional[Dict[str, str]] = None
+    
+    # New fields
+    business_category: Optional[str] = None
+    business_address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    pincode: Optional[str] = None
+    google_profile_registered: Optional[str] = None
+    google_maps_link: Optional[str] = None
+    number_of_branches: Optional[int] = None
+    branch_locations: Optional[str] = None
+    whatsapp_number: Optional[str] = None
 
 class BusinessProfileResponse(BusinessProfileBase):
     id: int
