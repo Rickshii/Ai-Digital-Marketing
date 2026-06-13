@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Briefcase, Globe, Search, Share2,
   Megaphone, FileText, Settings, LogOut, User, Menu, X,
-  Sparkles, Bell, ChevronDown, TrendingUp, Zap
+  Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield
 } from 'lucide-react';
 
 const navItems = [
@@ -35,6 +35,17 @@ const DashboardLayout = ({ children }) => {
   const [profileDropdown, setProfileDropdown] = useState(false);
   const [notifications, setNotifications] = useState(3);
   const dropdownRef = useRef(null);
+
+  const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
+  const visibleNavItems = [...navItems];
+  if (isAdmin && !visibleNavItems.some(item => item.path === '/admin')) {
+    visibleNavItems.push({
+      name: 'Admin Panel',
+      path: '/admin',
+      icon: Shield,
+      color: 'from-rose-500 to-red-600'
+    });
+  }
 
   const handleLogout = () => {
     logout();
@@ -95,7 +106,7 @@ const DashboardLayout = ({ children }) => {
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-3 mb-3">Navigation</p>
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             return (
@@ -281,7 +292,7 @@ const DashboardLayout = ({ children }) => {
               </div>
 
               <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (

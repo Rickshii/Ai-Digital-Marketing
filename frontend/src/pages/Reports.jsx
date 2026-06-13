@@ -1,38 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Download, BarChart2, Calendar, TrendingUp, Globe,
   Briefcase, Search, Share2, Megaphone, CheckCircle, Clock,
-  Star, Filter, Eye, Trash2, Plus, Printer, X
+  Star, Filter, Eye, Trash2, Plus, Printer, X, Sparkles, Shield, Key
 } from 'lucide-react';
-
-const mockReports = [
-  {
-    id: 'rpt-1', title: 'Q2 2026 Full Marketing Report', type: 'comprehensive',
-    created: '2026-06-01', pages: 24, size: '3.2 MB', status: 'ready',
-    scores: { business: 92, health: 88, seo: 91, social: 74, marketing: 89 },
-  },
-  {
-    id: 'rpt-2', title: 'Acme Corp Website Audit Report', type: 'audit',
-    created: '2026-05-28', pages: 12, size: '1.8 MB', status: 'ready',
-    scores: { business: 0, health: 88, seo: 91, social: 0, marketing: 0 },
-  },
-  {
-    id: 'rpt-3', title: 'May Social Media Performance', type: 'social',
-    created: '2026-05-31', pages: 8, size: '1.1 MB', status: 'ready',
-    scores: { business: 0, health: 0, seo: 0, social: 74, marketing: 0 },
-  },
-  {
-    id: 'rpt-4', title: 'SEO Keyword & Technical Audit', type: 'seo',
-    created: '2026-05-20', pages: 16, size: '2.4 MB', status: 'ready',
-    scores: { business: 0, health: 0, seo: 91, social: 0, marketing: 0 },
-  },
-  {
-    id: 'rpt-5', title: 'June Marketing Strategy Plan', type: 'strategy',
-    created: '2026-06-05', pages: 19, size: '2.9 MB', status: 'generating',
-    scores: { business: 92, health: 88, seo: 91, social: 74, marketing: 89 },
-  },
-];
+import { reportsAPI } from '../services/api';
 
 const typeConfig = {
   comprehensive: { label: 'Full Report', color: 'from-violet-500 to-purple-600', icon: BarChart2, bg: 'bg-violet-50 text-violet-700 border-violet-200' },
@@ -42,19 +15,12 @@ const typeConfig = {
   strategy: { label: 'Strategy Plan', color: 'from-amber-500 to-orange-500', icon: Megaphone, bg: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-const analyticsStats = [
-  { label: 'Reports Generated', value: '24', icon: FileText, color: 'from-violet-500 to-purple-600' },
-  { label: 'Total Downloads', value: '142', icon: Download, color: 'from-cyan-500 to-blue-500' },
-  { label: 'Avg Report Score', value: '83', icon: TrendingUp, color: 'from-emerald-500 to-teal-600' },
-  { label: 'This Month', value: '7', icon: Calendar, color: 'from-amber-500 to-orange-500' },
-];
-
 const ScorePill = ({ label, score }) => {
-  if (!score) return null;
+  if (score === undefined || score === null) return null;
   const color = score >= 80 ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : score >= 55 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-red-50 text-red-600 border-red-100';
   return (
     <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${color}`}>
-      {label} {score}
+      {label}: {score}%
     </span>
   );
 };
@@ -62,50 +28,92 @@ const ScorePill = ({ label, score }) => {
 const Reports = () => {
   const [filter, setFilter] = useState('all');
   const [generating, setGenerating] = useState(false);
-  const [reportsList, setReportsList] = useState(mockReports);
+  const [loading, setLoading] = useState(true);
+  const [reportsList, setReportsList] = useState([]);
   const [previewReport, setPreviewReport] = useState(null);
 
-  const filtered = filter === 'all' ? reportsList : reportsList.filter(r => r.type === filter);
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const data = await reportsAPI.getReports();
+      setReportsList(data);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const handleGenerate = () => {
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const handleGenerate = async () => {
     setGenerating(true);
-    setTimeout(() => {
-      const newReport = {
-        id: `rpt-${Date.now()}`,
-        title: `Auto-Generated Marketing Analysis ${new Date().toLocaleDateString()}`,
-        type: 'comprehensive',
-        created: new Date().toISOString().split('T')[0],
-        pages: 18,
-        size: '2.5 MB',
-        status: 'ready',
-        scores: { business: 85, health: 90, seo: 88, social: 65, marketing: 82 }
-      };
+    try {
+      const newReport = await reportsAPI.generateReport({
+        title: `Comprehensive Marketing Audit ${new Date().toLocaleDateString()}`,
+        type: 'comprehensive'
+      });
       setReportsList(prev => [newReport, ...prev]);
+    } catch (err) {
+      console.error('Error generating report:', err);
+    } finally {
       setGenerating(false);
-    }, 2000);
+    }
   };
 
   const handleDownload = (report) => {
+    const divider = "=================================================================";
     const content = `
-=========================================
-${report.title.toUpperCase()}
-=========================================
-Category: ${report.type.toUpperCase()}
-Created: ${report.created}
-Pages: ${report.pages}
-Size: ${report.size}
+${divider}
+                       MARKETERAI REPORT
+${divider}
+Report ID:   ${report.report_id}
+Title:       ${report.title}
+Date:        ${new Date(report.created_at).toLocaleString()}
+Type:        ${report.type.toUpperCase()}
 
-OVERVIEW SCORES:
-${Object.entries(report.scores).map(([k, v]) => v > 0 ? `- ${k.toUpperCase()}: ${v}%` : '').filter(Boolean).join('\n')}
+SCORES OVERVIEW:
+${Object.entries(report.scores || {}).map(([k, v]) => `  - ${k.toUpperCase()}: ${v}%`).join('\n')}
 
-DETAILED MARKETING FINDINGS:
-1. Technical Optimization: Secure all endpoints, Compress high-resolution media files.
-2. Search Engine Visibility: Focus on high-intent search keywords and title tag length.
-3. Social Audience Reach: Use UTM tracking tags for conversion tracking.
-4. AI Growth Suggestion: Publish bi-weekly industry reviews to double inbound leads.
+BUSINESS DESCRIPTION:
+  - Name:      ${report.business_overview?.business_name || 'N/A'}
+  - Industry:  ${report.business_overview?.industry_type || 'N/A'}
+  - Website:   ${report.business_overview?.website_url || 'N/A'}
+  - Location:  ${report.business_overview?.business_location || 'N/A'}
 
-Report generated by MarketerAI Platform.
-=========================================
+WEBSITE AUDIT RESULTS:
+  - Health Score:  ${report.website_audit?.health_score || 0}%
+  - Load Speed:    ${report.website_audit?.load_time || 'N/A'}
+  - HTTPS Secure:  ${report.website_audit?.is_https ? 'Yes' : 'No'}
+  - Suggestions:
+${(report.website_audit?.improvement_suggestions || []).map((s, idx) => `    ${idx + 1}. ${s}`).join('\n')}
+
+SEO AUDIT RESULTS:
+  - SEO Score:     ${report.seo_audit?.seo_score || 0}%
+  - Sitemap.xml:   ${report.seo_audit?.has_sitemap ? 'Detected' : 'Missing'}
+  - Robots.txt:    ${report.seo_audit?.has_robots_txt ? 'Detected' : 'Missing'}
+
+SOCIAL MEDIA ANALYSIS:
+  - Social Score:  ${report.social_media_analysis?.social_score || 0}%
+  - Channels Analyzed:
+    * Facebook:    ${report.social_media_analysis?.facebook_url || 'Not Set'}
+    * Instagram:   ${report.social_media_analysis?.instagram_url || 'Not Set'}
+    * LinkedIn:    ${report.social_media_analysis?.linkedin_url || 'Not Set'}
+    * YouTube:     ${report.social_media_analysis?.youtube_url || 'Not Set'}
+  - Growth Actions:
+${(report.social_media_analysis?.growth_suggestions || []).map((s, idx) => `    * ${s}`).join('\n')}
+
+MARKETING STRATEGY PROJECTIONS:
+  - Recommended Lead Magnet: ${report.marketing_strategy?.lead_gen_strategy?.recommended_lead_magnet || 'N/A'}
+  - Est. Monthly Reach:      ${report.marketing_strategy?.reach_estimate || 'N/A'}
+  - Projected ROI:           ${report.marketing_strategy?.projected_roi || 'N/A'}
+
+${divider}
+  This document serves as a consolidated performance report.
+  Powered by MarketerAI Digital Marketing Consultant.
+${divider}
 `;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -125,50 +133,110 @@ Report generated by MarketerAI Platform.
         <head>
           <title>Print - ${report.title}</title>
           <style>
-            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
-            .header { border-bottom: 2px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; }
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; background-color: #ffffff; }
+            .header { border-bottom: 2px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
             .title { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0; }
+            .logo-placeholder { font-size: 18px; font-weight: 800; color: #8b5cf6; letter-spacing: -0.5px; }
             .meta { font-size: 12px; color: #64748b; margin-top: 5px; }
-            .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin: 30px 0; }
-            .score-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; text-align: center; }
-            .score-val { font-size: 20px; font-weight: 800; color: #8b5cf6; }
-            .section { margin-bottom: 30px; }
-            .section-title { font-size: 16px; font-weight: bold; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px; margin-bottom: 15px; color: #0f172a; }
-            .suggestion { background: #f8fafc; border-left: 4px solid #8b5cf6; padding: 12px; margin-bottom: 10px; font-size: 13px; }
+            .scores { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin: 30px 0; }
+            .score-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; text-align: center; background: #f8fafc; }
+            .score-name { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 5px; }
+            .score-val { font-size: 24px; font-weight: 800; color: #8b5cf6; }
+            .section { margin-bottom: 35px; page-break-inside: avoid; }
+            .section-title { font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+            .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .metric-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px; }
+            .metric-label { color: #64748b; font-weight: 500; }
+            .metric-value { color: #1e293b; font-weight: 600; }
+            .suggestion-list { list-style-type: none; padding-left: 0; margin: 0; }
+            .suggestion-item { background: #f8fafc; border-left: 4px solid #8b5cf6; padding: 12px; margin-bottom: 10px; font-size: 13px; border-radius: 0 8px 8px 0; }
             @media print {
               body { padding: 0; }
+              @page { margin: 1.5cm; }
             }
           </style>
         </head>
         <body>
           <div class="header">
-            <div class="title">${report.title}</div>
-            <div class="meta">Created on ${report.created} | Pages: ${report.pages} | Category: ${report.type.toUpperCase()}</div>
+            <div>
+              <div class="title">${report.title}</div>
+              <div class="meta">Report ID: ${report.report_id} | Created: ${new Date(report.created_at).toLocaleDateString()} | Type: Comprehensive Audit</div>
+            </div>
+            <div class="logo-placeholder">MarketerAI ✨</div>
           </div>
           
           <div class="section">
-            <div class="section-title">EXECUTIVE PERFORMANCE OVERVIEW</div>
-            <p>This report compiles comprehensive data-driven marketing audits, search visibility scores, speed indices, and social media tracking metrics to evaluate the business's current digital footprint.</p>
+            <div class="section-title">Consolidated Performance Scores</div>
             <div class="scores">
-              ${Object.entries(report.scores).map(([k, v]) => v > 0 ? `
+              ${Object.entries(report.scores || {}).map(([k, v]) => `
                 <div class="score-card">
-                  <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600;">${k}</div>
+                  <div class="score-name">${k}</div>
                   <div class="score-val">${v}%</div>
                 </div>
-              ` : '').join('')}
+              `).join('')}
             </div>
           </div>
 
           <div class="section">
-            <div class="section-title">KEY SUGGESTIONS & INSIGHTS</div>
-            <div class="suggestion">
-              <strong>🚀 Focus on high-intent search keywords:</strong> Optimize technical website indices, secure all endpoints, and compressed media files to improve mobile speed by 40%.
+            <div class="section-title">Business & Website Overview</div>
+            <div class="grid-2">
+              <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #0f172a;">Company Profile</h4>
+                <div class="metric-row"><span class="metric-label">Business Name</span><span class="metric-value">${report.business_overview?.business_name || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Industry Type</span><span class="metric-value">${report.business_overview?.industry_type || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Location</span><span class="metric-value">${report.business_overview?.business_location || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Target Audience</span><span class="metric-value">${report.business_overview?.target_audience || 'N/A'}</span></div>
+              </div>
+              <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #0f172a;">Technical Site Analysis</h4>
+                <div class="metric-row"><span class="metric-label">Website URL</span><span class="metric-value">${report.website_audit?.website_url || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Load Time</span><span class="metric-value">${report.website_audit?.load_time || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">HTTPS Enabled</span><span class="metric-value">${report.website_audit?.is_https ? 'Yes (Secure)' : 'No (Insecure)'}</span></div>
+                <div class="metric-row"><span class="metric-label">Sitemap.xml</span><span class="metric-value">${report.seo_audit?.has_sitemap ? 'Detected' : 'Missing'}</span></div>
+              </div>
             </div>
-            <div class="suggestion">
-              <strong>📈 Refine audience targeting parameters:</strong> Set up tracking parameters (UTM tags) for paid social campaigns to audit channel conversions accurately.
+          </div>
+
+          <div class="section">
+            <div class="section-title">SEO & Speed Improvement Actions</div>
+            <ul class="suggestion-list">
+              ${(report.website_audit?.improvement_suggestions || []).map(s => `
+                <li class="suggestion-item">
+                  <strong>Technical:</strong> ${s}
+                </li>
+              `).join('') || '<p style="font-size: 13px; color: #64748b;">No high-priority site issues identified.</p>'}
+            </ul>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Social Media Presence & Channels</div>
+            <div class="grid-2">
+              <div>
+                <div class="metric-row"><span class="metric-label">Facebook Profile</span><span class="metric-value">${report.social_media_analysis?.facebook_url ? 'Configured' : 'Not Connected'}</span></div>
+                <div class="metric-row"><span class="metric-label">Instagram Profile</span><span class="metric-value">${report.social_media_analysis?.instagram_url ? 'Configured' : 'Not Connected'}</span></div>
+              </div>
+              <div>
+                <div class="metric-row"><span class="metric-label">LinkedIn Profile</span><span class="metric-value">${report.social_media_analysis?.linkedin_url ? 'Configured' : 'Not Connected'}</span></div>
+                <div class="metric-row"><span class="metric-label">YouTube Channel</span><span class="metric-value">${report.social_media_analysis?.youtube_url ? 'Configured' : 'Not Connected'}</span></div>
+              </div>
             </div>
-            <div class="suggestion">
-              <strong>⚡ Improve load performance:</strong> Leverage server cache optimizations to ensure rapid Time to First Byte (TTFB).
+          </div>
+
+          <div class="section">
+            <div class="section-title">Strategic Growth Recommendations</div>
+            <div class="grid-2">
+              <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #0f172a;">Lead Capture Model</h4>
+                <div class="metric-row"><span class="metric-label">Suggested Lead Magnet</span><span class="metric-value">${report.marketing_strategy?.lead_gen_strategy?.recommended_lead_magnet || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Projected Monthly Reach</span><span class="metric-value">${report.marketing_strategy?.reach_estimate || 'N/A'}</span></div>
+                <div class="metric-row"><span class="metric-label">Projected Campaign ROI</span><span class="metric-value">${report.marketing_strategy?.projected_roi || 'N/A'}</span></div>
+              </div>
+              <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #0f172a;">Brand Messaging</h4>
+                <p style="font-size: 12px; margin: 0; color: #475569; line-height: 1.5;">
+                  ${report.marketing_strategy?.branding_strategy?.positioning_statement || 'N/A'}
+                </p>
+              </div>
             </div>
           </div>
           
@@ -184,19 +252,42 @@ Report generated by MarketerAI Platform.
     printWindow.document.close();
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this report?')) {
-      setReportsList(prev => prev.filter(r => r.id !== id));
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this report?')) {
+      try {
+        await reportsAPI.deleteReport(id);
+        setReportsList(prev => prev.filter(r => r.id !== id));
+      } catch (err) {
+        console.error('Error deleting report:', err);
+      }
     }
   };
+
+  const filtered = filter === 'all' ? reportsList : reportsList.filter(r => r.type === filter);
+
+  const stats = [
+    { label: 'Reports Generated', value: reportsList.length.toString(), icon: FileText, color: 'from-violet-500 to-purple-600' },
+    { label: 'Avg Report Score', value: reportsList.length ? `${Math.round(reportsList.reduce((acc, r) => acc + (r.scores?.business || 50), 0) / reportsList.length)}%` : '0%', icon: TrendingUp, color: 'from-emerald-500 to-teal-600' },
+    { label: 'Total Audits Saved', value: (reportsList.length * 2).toString(), icon: Globe, color: 'from-cyan-500 to-blue-500' },
+    { label: 'Active Business', value: reportsList.length ? '1' : '0', icon: Briefcase, color: 'from-amber-500 to-orange-500' },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="h-12 w-12 border-4 border-violet-500/30 border-t-violet-600 rounded-full animate-spin" />
+        <p className="text-slate-500 font-semibold animate-pulse">Loading reports history...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 font-sans">Reports Center</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Download, manage and analyze all your marketing reports</p>
+          <h1 className="text-2xl font-extrabold text-slate-800">Reports Center</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Download, manage, and print consolidated digital marketing audit reports</p>
         </div>
         <motion.button
           onClick={handleGenerate}
@@ -205,56 +296,27 @@ Report generated by MarketerAI Platform.
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 hover:opacity-95 disabled:opacity-60 transition-all"
         >
           {generating ? (
-            <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating...</>
+            <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Compiling Report...</>
           ) : (
-            <><Plus className="h-4 w-4" /> Generate New Report</>
+            <><Plus className="h-4 w-4" /> Compile Consolidated Report</>
           )}
         </motion.button>
       </div>
 
       {/* Analytics Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {analyticsStats.map((stat, i) => (
+        {stats.map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
             className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-sm`}>
               <stat.icon className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-slate-800">{stat.value}</p>
+              <p className="text-xl font-extrabold text-slate-800">{stat.value}</p>
               <p className="text-xs text-slate-400 leading-tight">{stat.label}</p>
             </div>
           </motion.div>
         ))}
-      </div>
-
-      {/* Report Analytics Chart */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-bold text-slate-800">Report Generation History</h3>
-          <span className="text-xs text-slate-400">Last 6 months</span>
-        </div>
-        <div className="flex items-end gap-3 h-28">
-          {[
-            { month: 'Jan', count: 2 },
-            { month: 'Feb', count: 4 },
-            { month: 'Mar', count: 3 },
-            { month: 'Apr', count: 6 },
-            { month: 'May', count: 5 },
-            { month: 'Jun', count: 7 },
-          ].map((item, i) => (
-            <div key={item.month} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-xs font-bold text-slate-500">{item.count}</span>
-              <motion.div
-                className="w-full rounded-t-lg bg-gradient-to-t from-violet-500 to-indigo-400"
-                initial={{ height: 0 }}
-                animate={{ height: `${(item.count / 7) * 100}%` }}
-                transition={{ delay: i * 0.1, duration: 0.6, ease: 'easeOut' }}
-              />
-              <span className="text-[10px] text-slate-400">{item.month}</span>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Filter Tabs + Report List */}
@@ -263,11 +325,7 @@ Report generated by MarketerAI Platform.
           <div className="flex gap-1 flex-wrap">
             {[
               { id: 'all', label: 'All Reports' },
-              { id: 'comprehensive', label: 'Full' },
-              { id: 'audit', label: 'Audit' },
-              { id: 'seo', label: 'SEO' },
-              { id: 'social', label: 'Social' },
-              { id: 'strategy', label: 'Strategy' },
+              { id: 'comprehensive', label: 'Full Audits' },
             ].map(f => (
               <button key={f.id} onClick={() => setFilter(f.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${filter === f.id ? 'bg-violet-100 text-violet-700' : 'text-slate-500 hover:bg-slate-100'}`}>
@@ -281,68 +339,71 @@ Report generated by MarketerAI Platform.
           </div>
         </div>
 
-        <div className="divide-y divide-slate-50">
-          <AnimatePresence>
-            {filtered.map((report, i) => {
-              const cfg = typeConfig[report.type];
-              const Icon = cfg.icon;
-              return (
-                <motion.div key={report.id}
-                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-all"
-                >
-                  {/* Icon */}
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${cfg.color} text-white shadow-sm`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 px-4">
+            <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-sm font-bold text-slate-700">No reports generated yet</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">Compile your first consolidated report to see details of your business scores and marketing strategies.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            <AnimatePresence>
+              {filtered.map((report, i) => {
+                const cfg = typeConfig[report.type] || typeConfig.comprehensive;
+                const Icon = cfg.icon;
+                return (
+                  <motion.div key={report.id}
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-all"
+                  >
+                    {/* Icon */}
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${cfg.color} text-white shadow-sm`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h4 className="text-sm font-bold text-slate-800 truncate">{report.title}</h4>
-                      <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${cfg.bg}`}>{cfg.label}</span>
-                      {report.status === 'generating' && (
-                        <span className="text-[10px] font-bold border rounded-full px-2 py-0.5 bg-amber-50 text-amber-600 border-amber-200 flex items-center gap-1">
-                          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /> Generating
-                        </span>
-                      )}
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h4 className="text-sm font-bold text-slate-800 truncate">{report.title}</h4>
+                        <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${cfg.bg}`}>{report.report_id}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(report.created_at).toLocaleDateString()}</span>
+                        <span>Type: {cfg.label}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {Object.entries(report.scores || {}).map(([key, val]) =>
+                          val !== undefined && val !== null ? (
+                            <ScorePill key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} score={val} />
+                          ) : null
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{report.created}</span>
-                      <span>{report.pages} pages</span>
-                      <span>{report.size}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {Object.entries(report.scores).map(([key, val]) =>
-                        val > 0 ? <ScorePill key={key} label={key.charAt(0).toUpperCase() + key.slice(1)} score={val} /> : null
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button onClick={() => setPreviewReport(report)}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-all">
-                      <Eye className="h-3.5 w-3.5" /> Preview
-                    </button>
-                    <motion.button
-                      onClick={() => handleDownload(report)}
-                      whileTap={{ scale: 0.95 }}
-                      disabled={report.status === 'generating'}
-                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50 transition-all"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Download
-                    </motion.button>
-                    <button onClick={() => handleDelete(report.id)} className="rounded-xl p-2 text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => setPreviewReport(report)}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-all">
+                        <Eye className="h-3.5 w-3.5" /> Preview
+                      </button>
+                      <motion.button
+                        onClick={() => handleDownload(report)}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition-all"
+                      >
+                        <Download className="h-3.5 w-3.5" /> Download
+                      </motion.button>
+                      <button onClick={() => handleDelete(report.id)} className="rounded-xl p-2 text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* Report Preview Modal */}
@@ -351,16 +412,16 @@ Report generated by MarketerAI Platform.
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-              className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+              className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
               
               {/* Modal Header */}
               <div className="bg-gradient-to-r from-violet-600 to-indigo-600 p-6 text-white flex justify-between items-start">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
-                    {typeConfig[previewReport.type]?.label || 'Report'}
+                    Report ID: {previewReport.report_id}
                   </span>
                   <h2 className="text-lg font-extrabold mt-2">{previewReport.title}</h2>
-                  <p className="text-xs text-violet-200 mt-1">Generated on {previewReport.created} | {previewReport.pages} Pages</p>
+                  <p className="text-xs text-violet-200 mt-1">Compiled on {new Date(previewReport.created_at).toLocaleString()}</p>
                 </div>
                 <button onClick={() => setPreviewReport(null)} className="rounded-xl p-1.5 bg-white/10 hover:bg-white/20 transition-all text-white">
                   <X className="h-5 w-5" />
@@ -369,50 +430,159 @@ Report generated by MarketerAI Platform.
 
               {/* Modal Content */}
               <div className="p-6 overflow-y-auto space-y-6 flex-1 text-left">
-                {/* Executive Overview */}
+                {/* Consolidated Scores */}
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-3">Executive Summary</h3>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    This detailed analysis compiles digital speed, security configurations, content formatting, and keyword tracking metrics. We recommend using these guidelines to optimize marketing campaigns and landing pages.
-                  </p>
-                </div>
-
-                {/* Scores Overview */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-3">Audit Scores Summary</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2 mb-3">Report Scores Summary</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {Object.entries(previewReport.scores).map(([key, val]) => (
+                    {Object.entries(previewReport.scores || {}).map(([key, val]) => (
                       <div key={key} className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{key}</p>
-                        <p className={`text-lg font-extrabold mt-1 ${val > 0 ? 'text-violet-600' : 'text-slate-300'}`}>
-                          {val > 0 ? `${val}%` : 'N/A'}
+                        <p className="text-lg font-extrabold mt-1 text-violet-600">
+                          {val}%
                         </p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Core Audit Findings */}
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 mb-3">Key Audit Findings</h3>
-                  <div className="space-y-3">
-                    {[
-                      { title: 'Technical Optimization', desc: 'Secure endpoints, leverage browser caching, and reduce media assets payload sizes.' },
-                      { title: 'Search Engine Authority', desc: 'Establish relevant industry backlink metrics and perform on-page technical semantic enhancements.' },
-                      { title: 'Audience Segment Engagement', desc: 'Build responsive content funnels across primary channels with dedicated UTM trackers.' }
-                    ].map((finding, idx) => (
-                      <div key={idx} className="flex gap-3 bg-violet-50/50 border border-violet-100/50 p-3 rounded-2xl">
-                        <div className="h-6 w-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
-                          {idx + 1}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-800">{finding.title}</h4>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{finding.desc}</p>
-                        </div>
+                {/* Business Overview */}
+                {previewReport.business_overview && (
+                  <div className="bg-slate-50 border border-slate-100 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Briefcase className="h-4 w-4" />Business Profile Info</h4>
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-slate-400 block">Business Name</span>
+                        <span className="font-semibold text-slate-800">{previewReport.business_overview.business_name}</span>
                       </div>
-                    ))}
+                      <div>
+                        <span className="text-slate-400 block">Industry</span>
+                        <span className="font-semibold text-slate-800">{previewReport.business_overview.industry_type}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Website URL</span>
+                        <span className="font-semibold text-slate-800">{previewReport.business_overview.website_url}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Location</span>
+                        <span className="font-semibold text-slate-800">{previewReport.business_overview.business_location}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Website Audit Overview */}
+                {previewReport.website_audit && (
+                  <div className="border border-slate-100 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Globe className="h-4 w-4" />Website Technical Quality</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                      <div>
+                        <span className="text-slate-400 block">Health Score</span>
+                        <span className="font-bold text-slate-800">{previewReport.website_audit.health_score}%</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Load Speed</span>
+                        <span className="font-bold text-slate-800">{previewReport.website_audit.load_time}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Secure HTTPS</span>
+                        <span className="font-bold text-slate-800">{previewReport.website_audit.is_https ? 'Yes (Secure)' : 'No (Insecure)'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Readability Score</span>
+                        <span className="font-bold text-slate-800">{previewReport.website_audit.readability_score || 0}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Technical Recommendations</span>
+                      <div className="space-y-1.5">
+                        {(previewReport.website_audit.improvement_suggestions || []).map((s, idx) => (
+                          <div key={idx} className="flex gap-2 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            <span className="text-violet-500 font-bold">•</span>
+                            <span>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SEO Audit & Errors */}
+                {previewReport.seo_audit && (
+                  <div className="bg-slate-50 border border-slate-100 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Search className="h-4 w-4" />SEO Performance & Meta</h4>
+                    <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+                      <div>
+                        <span className="text-slate-400 block">Sitemap.xml</span>
+                        <span className="font-semibold text-slate-800">{previewReport.seo_audit.has_sitemap ? 'Configured' : 'Missing'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Robots.txt</span>
+                        <span className="font-semibold text-slate-800">{previewReport.seo_audit.has_robots_txt ? 'Configured' : 'Missing'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Canonical URL</span>
+                        <span className="font-semibold text-slate-800">{previewReport.seo_audit.has_canonical ? 'Active' : 'Missing'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Social Media Presence */}
+                {previewReport.social_media_analysis && (
+                  <div className="border border-slate-100 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Share2 className="h-4 w-4" />Social Platform Connections</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 block">Facebook Profile</span>
+                        <span className="font-semibold text-slate-800 truncate block">{previewReport.social_media_analysis.facebook_url || 'Not connected'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Instagram Profile</span>
+                        <span className="font-semibold text-slate-800 truncate block">{previewReport.social_media_analysis.instagram_url || 'Not connected'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">LinkedIn Profile</span>
+                        <span className="font-semibold text-slate-800 truncate block">{previewReport.social_media_analysis.linkedin_url || 'Not connected'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">YouTube Channel</span>
+                        <span className="font-semibold text-slate-800 truncate block">{previewReport.social_media_analysis.youtube_url || 'Not connected'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Strategy Snapshot */}
+                {previewReport.marketing_strategy && (
+                  <div className="bg-slate-50 border border-slate-100 p-5 rounded-2xl space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Megaphone className="h-4 w-4" />Strategic Content Action Plan</h4>
+                    <div className="grid grid-cols-3 gap-4 text-xs mb-3">
+                      <div>
+                        <span className="text-slate-400 block">Projected Campaign ROI</span>
+                        <span className="font-bold text-slate-800">{previewReport.marketing_strategy.projected_roi}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Est. Monthly Reach</span>
+                        <span className="font-bold text-slate-800">{previewReport.marketing_strategy.reach_estimate}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Recommended Lead Magnet</span>
+                        <span className="font-bold text-slate-800 truncate block">{previewReport.marketing_strategy.lead_gen_strategy?.recommended_lead_magnet}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">30-Day Calendar Highlights</span>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {(previewReport.marketing_strategy.plan_30_day || []).map((week, idx) => (
+                          <div key={idx} className="bg-white border border-slate-100 p-3 rounded-xl">
+                            <span className="text-[10px] font-bold text-violet-600 block">{week.week}: {week.title}</span>
+                            <span className="text-[11px] text-slate-500 line-clamp-2 mt-1">{(week.tasks || []).join(', ')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}

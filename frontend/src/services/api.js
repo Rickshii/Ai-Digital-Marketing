@@ -315,6 +315,37 @@ export const authAPI = {
       }
     );
   },
+
+  forgotPassword: async (email, newPassword) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/auth/forgot-password', {
+          email,
+          new_password: newPassword,
+        });
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (!user && !email.includes('demo') && !email.includes('admin')) {
+          throw {
+            response: {
+              data: { detail: 'No account found with this email address.' }
+            }
+          };
+        }
+        if (newPassword.length < 6) {
+          throw {
+            response: {
+              data: { detail: 'Password must be at least 6 characters.' }
+            }
+          };
+        }
+        return { detail: 'Password has been reset successfully. You can now log in with your new password.' };
+      }
+    );
+  },
 };
 
 export const businessAPI = {
@@ -693,6 +724,458 @@ export const socialAPI = {
       }
     );
   },
+};
+
+export const strategyAPI = {
+  getLatest: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/strategy/latest');
+        return response.data;
+      },
+      () => {
+        const strategies = getLocalData('mock_strategies', []);
+        if (strategies.length > 0) return strategies[0];
+        // If empty, generate a mock strategy
+        return strategyAPI.generate();
+      }
+    );
+  },
+
+  generate: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/strategy/');
+        return response.data;
+      },
+      () => {
+        const strategies = getLocalData('mock_strategies', []);
+        const profiles = getLocalData('mock_profiles', []);
+        const audits = getLocalData('mock_audits', []);
+        const socials = getLocalData('mock_social_analyses', []);
+
+        const latestProfile = profiles[0] || {};
+        const latestAudit = audits[0] || {};
+        const latestSocial = socials[0] || {};
+
+        const bizScore = latestProfile.completeness_score || 50;
+        const webHealth = latestAudit.health_score || 50;
+        const seoScore = latestAudit.seo_score || 50;
+        const socialScore = latestSocial.social_score || 50;
+
+        const strategyScore = Math.round((bizScore + webHealth + seoScore + socialScore) / 4);
+
+        const newStrategy = {
+          id: Date.now(),
+          business_profile_id: latestProfile.id || null,
+          strategy_score: strategyScore,
+          active_tasks: `0/12`,
+          reach_estimate: `${Math.round(strategyScore * 0.5)}K+`,
+          projected_roi: `${strategyScore * 4}%`,
+          scores_used: {
+            business_score: bizScore,
+            website_health_score: webHealth,
+            seo_score: seoScore,
+            social_media_score: socialScore
+          },
+          plan_30_day: [
+            {
+              week: "Week 1",
+              title: "Foundation & Brand Audit",
+              tasks: [
+                "Complete brand voice guidelines doc",
+                "Audit all existing content for consistency",
+                bizScore < 70 ? "Complete missing business profile fields" : "Analyze key search phrases of top 3 competitors"
+              ],
+              status: "active"
+            },
+            {
+              week: "Week 2",
+              title: "SEO & Content Launch",
+              tasks: [
+                seoScore < 75 ? "Submit sitemap.xml and robots.txt to Google Console" : "Publish 2 high-quality SEO-optimized articles",
+                "Build 10 internal links across site",
+                webHealth < 75 ? "Compress hero images and static assets to WebP" : "Set up lead-capture signup form"
+              ],
+              status: "pending"
+            },
+            {
+              week: "Week 3",
+              title: "Social Media Activation",
+              tasks: [
+                socialScore < 60 ? "Set up missing Facebook, Instagram and LinkedIn profiles" : "Optimize layout and bios of active profiles",
+                "Schedule 3 educational social media posts",
+                "Engage with 15-20 target customer profiles daily"
+              ],
+              status: "pending"
+            },
+            {
+              week: "Week 4",
+              title: "Lead Generation & Review",
+              tasks: [
+                "Launch lead magnet (free PDF/guide)",
+                "Review first month analytics",
+                "Perform monthly marketing audit"
+              ],
+              status: "pending"
+            }
+          ],
+          plan_90_day: [
+            {
+              month: "Month 2",
+              title: "Growth Acceleration",
+              desc: "Scale organic search traffic. Implement weekly blog schedule. Deploy lead magnet across premium visual ads."
+            },
+            {
+              month: "Month 3",
+              title: "Revenue Optimization",
+              desc: "A/B test homepage CTAs. Launch retargeting ads to recapture cart abandoners. Refine welcome sequence."
+            },
+            {
+              month: "Ongoing",
+              title: "Brand Authority",
+              desc: "Establish thought leadership. Publish client success stories. Target high-authority backlinks."
+            }
+          ],
+          branding_strategy: {
+            brand_voice: "Helpful, transparent, innovative, and user-centric.",
+            positioning_statement: `For target customers who need reliable services, ${latestProfile.business_name || 'your business'} offers premium solutions. Unlike competitors, we build long-term value through expertise and responsiveness.`,
+            visual_identity_tips: [
+              "Maintain consistent colors and font hierarchy across all marketing channels.",
+              "Use high-quality product photography rather than generic stock vectors."
+            ]
+          },
+          lead_gen_strategy: {
+            recommended_lead_magnet: "The Ultimate Step-by-Step Industry Playbook (PDF)",
+            conversion_funnel: [
+              "1. Drive traffic via value blog content.",
+              "2. Offer PDF playbook via high-visibility opt-in forms.",
+              "3. Follow up using a 4-part email drip sequence."
+            ],
+            landing_page_tips: [
+              "Keep the signup form short (name and email only).",
+              "Highlight at least two customer testimonials near the CTA."
+            ]
+          },
+          content_strategy: {
+            content_pillars: ["Educational Tips (50%)", "Industry Updates (20%)", "Behind the Scenes (30%)"],
+            suggested_formats: ["Long-form blogs", "Social carousel posts", "Monthly email newsletter"],
+            calendar_snapshot: [
+              { day: "Monday", format: "Educational Post", topic: "Pro tips for scaling operations" },
+              { day: "Wednesday", format: "Social Carousel", topic: "Product spotlight breakdown" },
+              { day: "Friday", format: "Customer Love", topic: "Highlighting a recent client milestone" }
+            ]
+          },
+          social_media_strategy: {
+            channel_mix: [
+              { name: "SEO & Content", budget: 35 },
+              { name: "Paid Social Ads", budget: 25 },
+              { name: "Email Marketing", budget: 20 },
+              { name: "Google Ads", budget: 15 },
+              { name: "Influencer", budget: 5 }
+            ],
+            posting_schedule: "Publish at least 3-4 times per week during peak hours (noon and 6 PM)."
+          },
+          created_at: new Date().toISOString()
+        };
+
+        strategies.unshift(newStrategy);
+        setLocalData('mock_strategies', strategies);
+        return newStrategy;
+      }
+    );
+  },
+
+  getHistory: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/strategy/');
+        return response.data;
+      },
+      () => getLocalData('mock_strategies', [])
+    );
+  }
+};
+
+export const reportsAPI = {
+  getReports: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/reports/');
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        if (reports.length === 0) {
+          const initialReports = [
+            {
+              id: 1,
+              report_id: 'REP-100482',
+              title: 'Comprehensive Digital Marketing Analysis',
+              type: 'comprehensive',
+              scores: { business: 95, health: 88, seo: 91, social: 78, marketing: 88 },
+              created_at: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
+              business_overview: { business_name: "Acme SaaS Corp", industry_type: "SaaS / Technology" },
+              website_audit: { website_url: "https://acme-saas-corp.io", health_score: 88, seo_score: 91 },
+              seo_audit: { seo_score: 91, has_robots_txt: true, has_sitemap: true },
+              social_media_analysis: { social_score: 78, platforms_found: 4 },
+              marketing_strategy: { strategy_score: 88, projected_roi: "350%" }
+            }
+          ];
+          setLocalData('mock_reports', initialReports);
+          return initialReports;
+        }
+        return reports;
+      }
+    );
+  },
+
+  getReport: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get(`/reports/${id}`);
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        const found = reports.find(r => r.id === parseInt(id) || r.id === id);
+        if (found) return found;
+        throw { response: { status: 404 } };
+      }
+    );
+  },
+
+  generateReport: async (reportData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/reports/', reportData);
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        const profiles = getLocalData('mock_profiles', []);
+        const audits = getLocalData('mock_audits', []);
+        const socials = getLocalData('mock_social_analyses', []);
+        const strategies = getLocalData('mock_strategies', []);
+
+        const profile = profiles[0] || {};
+        const audit = audits[0] || {};
+        const social = socials[0] || {};
+        const strategy = strategies[0] || {};
+
+        const bizScore = profile.completeness_score || 50;
+        const healthScore = audit.health_score || 50;
+        const seoScore = audit.seo_score || 50;
+        const socialScore = social.social_score || 50;
+        const strategyScore = strategy.strategy_score || 50;
+
+        const newReport = {
+          id: Date.now(),
+          report_id: `REP-${Math.floor(Math.random() * 900000) + 100000}`,
+          title: reportData.title || `${profile.business_name || 'My Business'} Consolidated Audit Report`,
+          type: reportData.type || 'comprehensive',
+          scores: {
+            business: bizScore,
+            health: healthScore,
+            seo: seoScore,
+            social: socialScore,
+            marketing: strategyScore
+          },
+          business_overview: profile.id ? {
+            business_name: profile.business_name,
+            industry_type: profile.industry_type,
+            website_url: profile.website_url,
+            business_location: profile.business_location,
+            target_audience: profile.target_audience,
+            description: profile.description,
+            completeness_score: bizScore,
+            improvement_suggestions: profile.improvement_suggestions || []
+          } : null,
+          website_audit: audit.id ? {
+            website_url: audit.website_url,
+            title: audit.title,
+            is_https: audit.secure,
+            health_score: healthScore,
+            seo_score: seoScore,
+            load_time: audit.load_time,
+            improvement_suggestions: (audit.suggestions || []).map(s => s.message)
+          } : null,
+          seo_audit: audit.id ? {
+            seo_score: seoScore,
+            has_robots_txt: true,
+            has_sitemap: true,
+            has_canonical: true,
+            seo_errors: (audit.suggestions || []).filter(s => s.type === 'critical').map(s => ({ message: s.message, level: 'critical' }))
+          } : null,
+          social_media_analysis: social.id ? {
+            social_score: socialScore,
+            profile_completeness: social.profile_completeness,
+            facebook_url: social.facebook_url,
+            instagram_url: social.instagram_url,
+            linkedin_url: social.linkedin_url,
+            youtube_url: social.youtube_url,
+            missing_elements: social.missing_elements || [],
+            growth_suggestions: social.growth_suggestions || []
+          } : null,
+          marketing_strategy: strategy.id ? {
+            strategy_score: strategyScore,
+            active_tasks: strategy.active_tasks,
+            reach_estimate: strategy.reach_estimate,
+            projected_roi: strategy.projected_roi,
+            plan_30_day: strategy.plan_30_day,
+            plan_90_day: strategy.plan_90_day,
+            branding_strategy: strategy.branding_strategy,
+            lead_gen_strategy: strategy.lead_gen_strategy,
+            content_strategy: strategy.content_strategy,
+            social_media_strategy: strategy.social_media_strategy
+          } : null,
+          created_at: new Date().toISOString()
+        };
+
+        reports.unshift(newReport);
+        setLocalData('mock_reports', reports);
+        return newReport;
+      }
+    );
+  },
+
+  deleteReport: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.delete(`/reports/${id}`);
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        const filtered = reports.filter(r => r.id !== id && r.id !== parseInt(id));
+        setLocalData('mock_reports', filtered);
+        return { message: 'Report deleted successfully' };
+      }
+    );
+  }
+};
+
+export const adminAPI = {
+  getStats: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/admin/stats');
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const profiles = getLocalData('mock_profiles', []);
+        const audits = getLocalData('mock_audits', []);
+        const socials = getLocalData('mock_social_analyses', []);
+        const reports = getLocalData('mock_reports', []);
+
+        const websiteAudits = audits.length;
+        const socialAudits = socials.length;
+        const totalAudits = websiteAudits + socialAudits;
+
+        const avgSeo = audits.length ? Math.round(audits.reduce((acc, curr) => acc + curr.seo_score, 0) / audits.length) : 0;
+        const avgHealth = audits.length ? Math.round(audits.reduce((acc, curr) => acc + curr.health_score, 0) / audits.length) : 0;
+        const avgSocial = socials.length ? Math.round(socials.reduce((acc, curr) => acc + curr.social_score, 0) / socials.length) : 0;
+
+        return {
+          total_users: users.length,
+          active_users: users.length,
+          new_registrations: users.length,
+          total_audits: totalAudits,
+          seo_audits: websiteAudits,
+          website_audits: websiteAudits,
+          social_media_audits: socialAudits,
+          total_reports: reports.length,
+          avg_seo_score: avgSeo,
+          avg_health_score: avgHealth,
+          avg_social_score: avgSocial,
+          registration_history: [
+            { month: "Jan", count: 0 },
+            { month: "Feb", count: 0 },
+            { month: "Mar", count: 0 },
+            { month: "Apr", count: 0 },
+            { month: "May", count: 0 },
+            { month: "Jun", count: users.length }
+          ]
+        };
+      }
+    );
+  },
+
+  getUsers: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/admin/users');
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const audits = getLocalData('mock_audits', []);
+        const reports = getLocalData('mock_reports', []);
+
+        return users.map(u => ({
+          id: u.id,
+          email: u.email,
+          full_name: u.full_name,
+          role: u.email.includes('admin') || (u.role && u.role.includes('Enterprise')) ? 'admin' : 'user',
+          created_at: u.created_at || new Date().toISOString(),
+          audits_count: audits.length,
+          reports_count: reports.length
+        }));
+      }
+    );
+  },
+
+  deleteUser: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.delete(`/admin/users/${id}`);
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const filtered = users.filter(u => u.id !== id && u.id !== parseInt(id));
+        setLocalData('mock_users', filtered);
+        return { message: 'User deleted successfully' };
+      }
+    );
+  },
+
+  getReports: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/admin/reports');
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        return reports.map(r => ({
+          id: r.id,
+          report_id: r.report_id,
+          title: r.title,
+          type: r.type,
+          created_at: r.created_at,
+          scores: r.scores,
+          user_email: 'demo@marketerai.com'
+        }));
+      }
+    );
+  },
+
+  deleteReport: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.delete(`/admin/reports/${id}`);
+        return response.data;
+      },
+      () => {
+        const reports = getLocalData('mock_reports', []);
+        const filtered = reports.filter(r => r.id !== id && r.id !== parseInt(id));
+        setLocalData('mock_reports', filtered);
+        return { message: 'Report deleted successfully' };
+      }
+    );
+  }
 };
 
 export default api;
