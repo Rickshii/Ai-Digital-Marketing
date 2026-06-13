@@ -12,3 +12,4 @@ python-dotenv
 cors
 alembic
 email-validator
+psycopg2-binary
