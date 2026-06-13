@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Globe, CreditCard,
   ChevronRight, CheckCircle, Save, Zap, Sun, Moon,
-  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff
+  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff, Loader2
 } from 'lucide-react';
+import { businessAPI } from '../services/api';
 
 const sections = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -44,6 +45,39 @@ const Settings = () => {
   const [showPass, setShowPass] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('user_theme') || 'purple');
   const [notifs, setNotifs] = useState({ email: true, push: true, reports: true, tips: false, marketing: false });
+  const [businessProfile, setBusinessProfile] = useState(null);
+  const [profileForm, setProfileForm] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    company: '',
+    title: 'Marketing Consultant',
+    location: '',
+    bio: 'Enterprise marketing consultant specializing in SaaS growth, SEO optimization, and data-driven strategies.'
+  });
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  React.useEffect(() => {
+    if (user) {
+      setProfileForm(p => ({ ...p, full_name: user.full_name, email: user.email }));
+      
+      businessAPI.getProfiles().then(profiles => {
+        if (profiles.length > 0) {
+          const bp = profiles[0];
+          setBusinessProfile(bp);
+          setProfileForm(p => ({
+            ...p,
+            phone: bp.contact_number || '',
+            company: bp.business_name || '',
+            location: bp.business_location || '',
+            bio: bp.description || p.bio
+          }));
+        }
+      }).finally(() => {
+        setLoadingProfile(false);
+      });
+    }
+  }, [user]);
 
   const handleThemeChange = (themeId) => {
     setTheme(themeId);
@@ -54,9 +88,28 @@ const Settings = () => {
     setTimeout(() => setSaved(false), 1500);
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const handleSave = async () => {
+    if (section === 'profile' && businessProfile) {
+      try {
+        await businessAPI.updateProfile(businessProfile.id, {
+          contact_number: profileForm.phone,
+          business_name: profileForm.company,
+          business_location: profileForm.location,
+          description: profileForm.bio
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      } catch (err) {
+        console.error("Failed to update profile", err);
+      }
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setProfileForm(p => ({ ...p, [field]: value }));
   };
 
   const initials = user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -105,27 +158,29 @@ const Settings = () => {
                 {/* Fields */}
                 <div className="grid sm:grid-cols-2 gap-4">
                   {[
-                    { label: 'Full Name', icon: User, placeholder: user?.full_name || 'Your Name', type: 'text' },
-                    { label: 'Email Address', icon: Mail, placeholder: user?.email || 'email@company.com', type: 'email' },
-                    { label: 'Phone Number', icon: Phone, placeholder: '+1 (555) 000-0000', type: 'tel' },
-                    { label: 'Company Name', icon: Building, placeholder: 'Acme Marketing Agency', type: 'text' },
-                    { label: 'Job Title', icon: User, placeholder: 'Growth Marketing Manager', type: 'text' },
-                    { label: 'Location', icon: MapPin, placeholder: 'San Francisco, CA', type: 'text' },
+                    { label: 'Full Name', field: 'full_name', icon: User, type: 'text' },
+                    { label: 'Email Address', field: 'email', icon: Mail, type: 'email', disabled: true },
+                    { label: 'Phone Number', field: 'phone', icon: Phone, placeholder: '+1 (555) 000-0000', type: 'tel' },
+                    { label: 'Company Name', field: 'company', icon: Building, placeholder: 'Acme Marketing Agency', type: 'text' },
+                    { label: 'Job Title', field: 'title', icon: User, placeholder: 'Growth Marketing Manager', type: 'text' },
+                    { label: 'Location', field: 'location', icon: MapPin, placeholder: 'San Francisco, CA', type: 'text' },
                   ].map(f => (
                     <div key={f.label}>
                       <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">{f.label}</label>
                       <div className="relative">
                         <f.icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <input type={f.type} defaultValue={f.placeholder}
-                          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:bg-white transition-all" />
+                        <input type={f.type} value={profileForm[f.field]} onChange={(e) => handleInputChange(f.field, e.target.value)}
+                          disabled={f.disabled}
+                          placeholder={f.placeholder}
+                          className={`w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all ${f.disabled ? 'opacity-70 cursor-not-allowed' : 'focus:bg-white'}`} />
                       </div>
                     </div>
                   ))}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Bio</label>
-                  <textarea rows={3} defaultValue="Enterprise marketing consultant specializing in SaaS growth, SEO optimization, and data-driven strategies."
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none transition-all" />
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Bio & Description</label>
+                  <textarea rows={3} value={profileForm.bio} onChange={(e) => handleInputChange('bio', e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 resize-none transition-all focus:bg-white" />
                 </div>
                 <div className="flex justify-end">
                   <motion.button onClick={handleSave} whileTap={{ scale: 0.97 }}

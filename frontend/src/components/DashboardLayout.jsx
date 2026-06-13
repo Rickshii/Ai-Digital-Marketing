@@ -47,6 +47,11 @@ const DashboardLayout = ({ children }) => {
     });
   }
 
+  const visibleBottomNavItems = [...bottomNavItems];
+  if (isAdmin && !visibleBottomNavItems.some(item => item.path === '/admin')) {
+    visibleBottomNavItems.push({ name: 'Admin', path: '/admin', icon: Shield });
+  }
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -57,10 +62,16 @@ const DashboardLayout = ({ children }) => {
     return location.pathname.startsWith(path);
   };
 
+  const [notificationDropdown, setNotificationDropdown] = useState(false);
+  const notifDropdownRef = useRef(null);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setProfileDropdown(false);
+      }
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
+        setNotificationDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -187,14 +198,58 @@ const DashboardLayout = ({ children }) => {
 
           <div className="flex items-center gap-2 md:gap-3">
             {/* Notification Bell */}
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50">
-              <Bell className="h-4 w-4" />
-              {notifications > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">
-                  {notifications}
-                </span>
-              )}
-            </button>
+            <div className="relative" ref={notifDropdownRef}>
+              <button 
+                onClick={() => setNotificationDropdown(p => !p)}
+                className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+              >
+                <Bell className="h-4 w-4" />
+                {notifications > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-violet-500 text-[9px] font-bold text-white">
+                    {notifications}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {notificationDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-12 w-64 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl shadow-slate-200/60 z-50"
+                  >
+                    <div className="px-3 py-2 border-b border-slate-100 mb-1 flex justify-between items-center">
+                      <p className="text-sm font-semibold text-slate-800">Notifications</p>
+                      {notifications > 0 && (
+                        <button onClick={() => setNotifications(0)} className="text-[10px] text-violet-600 font-semibold hover:underline">Mark all read</button>
+                      )}
+                    </div>
+                    {notifications > 0 ? (
+                      <div className="space-y-1">
+                        <div className="px-3 py-2 text-xs rounded-lg hover:bg-slate-50 cursor-pointer text-slate-600 transition-colors">
+                          <p className="font-semibold text-slate-800">New Audit Report Ready</p>
+                          <p className="opacity-80">Your website audit for acme.com is complete.</p>
+                        </div>
+                        <div className="px-3 py-2 text-xs rounded-lg hover:bg-slate-50 cursor-pointer text-slate-600 transition-colors">
+                          <p className="font-semibold text-slate-800">AI Strategy Generated</p>
+                          <p className="opacity-80">Check out your new marketing strategy for Q3.</p>
+                        </div>
+                        <div className="px-3 py-2 text-xs rounded-lg hover:bg-slate-50 cursor-pointer text-slate-600 transition-colors">
+                          <p className="font-semibold text-slate-800">System Update</p>
+                          <p className="opacity-80">We've added new social media metrics!</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-4 text-center text-xs text-slate-500">
+                        No new notifications.
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>
@@ -331,7 +386,7 @@ const DashboardLayout = ({ children }) => {
       {/* ──────────── MOBILE BOTTOM NAV ──────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-lg">
         <div className="flex items-center justify-around h-16 px-2">
-          {bottomNavItems.map((item) => {
+          {visibleBottomNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             return (
