@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, AlertTriangle, XCircle, Info,
@@ -135,14 +135,12 @@ const SEOAudit = () => {
     } finally { setLoad(false); }
   };
 
-  const report   = data?.audit_report || {};
   const errors   = data?.seo_errors || [];
   const suggests = data?.improvement_suggestions || [];
   const keywords = data?.keyword_density?.top_keywords || [];
 
   const criticals = errors.filter(e => e.level === 'critical').length;
   const warnings  = errors.filter(e => e.level === 'warning').length;
-  const infos     = errors.filter(e => e.level === 'info').length;
 
   const tabs = [
     { id: 'errors',  label: 'SEO Errors',      icon: XCircle,   count: errors.length },

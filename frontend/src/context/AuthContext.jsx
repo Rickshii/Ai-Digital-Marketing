@@ -1,4 +1,5 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, useEffect, useContext } from 'react';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -39,7 +40,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const errMsg = err.response?.data?.detail || "Invalid credentials. Please check your inputs.";
       setError(errMsg);
-      throw new Error(errMsg);
+      throw new Error(errMsg, { cause: err });
     } finally {
       setLoading(false);
     }
@@ -49,13 +50,13 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await authAPI.register(email, fullName, password, role);
+      await authAPI.register(email, fullName, password, role);
       // Automatically login after successful registration
       return await login(email, password);
     } catch (err) {
       const errMsg = err.response?.data?.detail || "Registration failed. Try a different email.";
       setError(errMsg);
-      throw new Error(errMsg);
+      throw new Error(errMsg, { cause: err });
     } finally {
       setLoading(false);
     }

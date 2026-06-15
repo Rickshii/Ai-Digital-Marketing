@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, cloneElement, Fragment } from 'react';
 import { businessAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Check, AlertTriangle, Globe, Phone, Mail,
-  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2, Download, Printer,
-  Briefcase, MapPin, Users, Sparkles, ChevronRight
+  Edit2, Save, TrendingUp, Calendar, Loader, Building2, Link2, Download, Printer,
+  Briefcase, MapPin, Users, Sparkles, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
 
@@ -88,7 +88,7 @@ const Field = ({ label, icon: Icon, children, required }) => (
     </label>
     <div className="relative">
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />}
-      {React.cloneElement(children, {
+      {cloneElement(children, {
         className: `w-full ${Icon ? 'pl-9' : 'pl-4'} pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:bg-white transition-all ${children.props.className || ''}`
       })}
     </div>
@@ -777,10 +777,10 @@ const BusinessProfile = () => {
                 <h2 className="text-lg font-extrabold mb-4">New Business Profile</h2>
                 <div className="flex items-center gap-2">
                   {STEPS.map((label, i) => (
-                    <React.Fragment key={label}>
+                    <Fragment key={label}>
                       <StepDot step={i} current={step} label={label} />
                       {i < STEPS.length - 1 && <div className={`flex-1 h-0.5 rounded-full transition-all ${step > i ? 'bg-white' : 'bg-white/25'}`} />}
-                    </React.Fragment>
+                    </Fragment>
                   ))}
                 </div>
               </div>

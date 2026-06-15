@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FileText, Download, BarChart2, Calendar, TrendingUp, Globe,
-  Briefcase, Search, Share2, Megaphone, CheckCircle, Clock,
-  Star, Filter, Eye, Trash2, Plus, Printer, X, Sparkles, Shield, Key
+  Briefcase, Search, Share2, Megaphone, CheckCircle,
+  Star, Filter, Eye, Trash2, Plus, Printer, X
 } from 'lucide-react';
 import { reportsAPI } from '../services/api';
 import html2pdf from 'html2pdf.js';
@@ -33,20 +33,22 @@ const Reports = () => {
   const [reportsList, setReportsList] = useState([]);
   const [previewReport, setPreviewReport] = useState(null);
 
-  const fetchReports = async () => {
-    try {
-      setLoading(true);
-      const data = await reportsAPI.getReports();
-      setReportsList(data);
-    } catch (err) {
-      console.error('Error fetching reports:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchReports();
+    let isMounted = true;
+    reportsAPI.getReports().then(data => {
+      if (isMounted) {
+        setReportsList(data);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.error('Error fetching reports:', err);
+      if (isMounted) {
+        setLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleGenerate = async () => {
@@ -157,7 +159,7 @@ const Reports = () => {
 
     const opt = {
       margin:       0.5,
-      filename:     \`${report.title.toLowerCase().replace(/ /g, '_')}_report.pdf\`,
+      filename:     `${report.title.toLowerCase().replace(/ /g, '_')}_report.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }

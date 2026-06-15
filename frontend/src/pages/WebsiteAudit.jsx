@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { auditAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

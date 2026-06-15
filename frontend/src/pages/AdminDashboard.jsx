@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, Trash2, Eye,
-  TrendingUp, Globe, AlertCircle
+  Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 
@@ -15,28 +14,29 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const loadAdminData = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg('');
-      const [statsData, usersData, reportsData] = await Promise.all([
-        adminAPI.getStats(),
-        adminAPI.getUsers(),
-        adminAPI.getReports()
-      ]);
-      setStats(statsData);
-      setUsers(usersData);
-      setReports(reportsData);
-    } catch (err) {
-      console.error('Failed to load admin data:', err);
-      setErrorMsg('Unauthorized access or connection to admin endpoints failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadAdminData();
+    let isMounted = true;
+    Promise.all([
+      adminAPI.getStats(),
+      adminAPI.getUsers(),
+      adminAPI.getReports()
+    ]).then(([statsData, usersData, reportsData]) => {
+      if (isMounted) {
+        setStats(statsData);
+        setUsers(usersData);
+        setReports(reportsData);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.error('Failed to load admin data:', err);
+      if (isMounted) {
+        setErrorMsg('Unauthorized access or connection to admin endpoints failed.');
+        setLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleDeleteUser = async (userId) => {
@@ -62,6 +62,7 @@ const AdminDashboard = () => {
         const statsData = await adminAPI.getStats();
         setStats(statsData);
       } catch (err) {
+        console.error('Failed to delete report:', err);
         alert('Failed to delete report.');
       }
     }

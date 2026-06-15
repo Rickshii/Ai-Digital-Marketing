@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Share2, Users, CheckCircle, XCircle, AlertTriangle,
-  Globe, Link2, MessageCircle, Clock, RefreshCw, TrendingUp,
-  ArrowUp, BarChart2, Lightbulb, Activity, Download, Printer
+  Share2, XCircle, AlertTriangle,
+  Clock, RefreshCw, TrendingUp,
+  BarChart2, Lightbulb, Activity, Download, Printer, CheckCircle
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { socialAPI } from '../services/api';
@@ -99,7 +99,6 @@ const SocialMedia = () => {
       setHistory(h);
       if (h.length) { setData(h[0]); prefillUrls(h[0]); }
     }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRun = async (e) => {

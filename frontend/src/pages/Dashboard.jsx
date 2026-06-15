@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { businessAPI, auditAPI } from '../services/api';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, TrendingDown, ArrowRight, Globe, Briefcase, Search,
-  Share2, Megaphone, Zap, CheckCircle, AlertTriangle, Clock,
-  Users, BarChart2, Activity, Star
+  Megaphone, Zap, CheckCircle, AlertTriangle, Clock,
+  BarChart2, Activity, Star
 } from 'lucide-react';
 
 // ── Circular Progress Chart ────────────────────────────────────
@@ -87,22 +87,6 @@ const KpiCard = ({ title, value, unit, icon: Icon, iconBg, trend, trendValue, de
       />
     </div>
   </motion.div>
-);
-
-// ── Mini Trend Bars ─────────────────────────────────────────
-const TrendBars = ({ data }) => (
-  <div className="flex items-end gap-1 h-10">
-    {data.map((v, i) => (
-      <motion.div
-        key={i}
-        className="flex-1 rounded-sm bg-gradient-to-t from-violet-400 to-indigo-400 opacity-70"
-        initial={{ height: 0 }}
-        animate={{ height: `${v}%` }}
-        transition={{ delay: i * 0.05, duration: 0.4 }}
-        style={{ maxHeight: '100%', minHeight: 4 }}
-      />
-    ))}
-  </div>
 );
 
 // ── Activity Skeleton ────────────────────────────────────────

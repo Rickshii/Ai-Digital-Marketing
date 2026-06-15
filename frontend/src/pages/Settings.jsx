@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Globe, CreditCard,
   ChevronRight, CheckCircle, Save, Zap, Sun, Moon,
-  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff, Loader2
+  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff
 } from 'lucide-react';
 import { businessAPI } from '../services/api';
 
@@ -55,28 +55,44 @@ const Settings = () => {
     location: '',
     bio: 'Enterprise marketing consultant specializing in SaaS growth, SEO optimization, and data-driven strategies.'
   });
-  const [loadingProfile, setLoadingProfile] = useState(true);
-
   React.useEffect(() => {
-    if (user) {
-      setProfileForm(p => ({ ...p, full_name: user.full_name, email: user.email }));
-      
-      businessAPI.getProfiles().then(profiles => {
-        if (profiles.length > 0) {
-          const bp = profiles[0];
-          setBusinessProfile(bp);
-          setProfileForm(p => ({
-            ...p,
-            phone: bp.contact_number || '',
-            company: bp.business_name || '',
-            location: bp.business_location || '',
-            bio: bp.description || p.bio
-          }));
-        }
-      }).finally(() => {
-        setLoadingProfile(false);
-      });
-    }
+    if (!user) return;
+
+    let isMounted = true;
+    businessAPI.getProfiles().then(profiles => {
+      if (!isMounted) return;
+      if (profiles.length > 0) {
+        const bp = profiles[0];
+        setBusinessProfile(bp);
+        setProfileForm({
+          full_name: user.full_name || '',
+          email: user.email || '',
+          phone: bp.contact_number || '',
+          company: bp.business_name || '',
+          title: 'Marketing Consultant',
+          location: bp.business_location || '',
+          bio: bp.description || 'Enterprise marketing consultant specializing in SaaS growth, SEO optimization, and data-driven strategies.'
+        });
+      } else {
+        setProfileForm(p => ({
+          ...p,
+          full_name: user.full_name || '',
+          email: user.email || ''
+        }));
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setProfileForm(p => ({
+          ...p,
+          full_name: user.full_name || '',
+          email: user.email || ''
+        }));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   const handleThemeChange = (themeId) => {

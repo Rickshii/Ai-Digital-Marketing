@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Briefcase, Globe, Search, Share2,
-  Megaphone, FileText, Settings, LogOut, User, Menu, X,
+  Megaphone, FileText, Settings, LogOut, Menu, X,
   Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield
 } from 'lucide-react';
 

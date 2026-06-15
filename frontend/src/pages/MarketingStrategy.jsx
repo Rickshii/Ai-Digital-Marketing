@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Megaphone, Calendar, Target, TrendingUp, Zap, CheckCircle,
-  Clock, Flag, BarChart2, Users, Mail, Globe, Sparkles, BookOpen, Key, Download, Printer
+  Flag, BarChart2, Users, Mail, Globe, Sparkles, BookOpen, Key, Download, Printer
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { strategyAPI } from '../services/api';
@@ -37,20 +37,22 @@ const MarketingStrategy = () => {
   const [regenerating, setRegenerating] = useState(false);
   const [tab, setTab] = useState('plan30');
 
-  const fetchLatestStrategy = async () => {
-    try {
-      setLoading(true);
-      const data = await strategyAPI.getLatest();
-      setStrategy(data);
-    } catch (err) {
-      console.error('Error fetching marketing strategy:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchLatestStrategy();
+    let isMounted = true;
+    strategyAPI.getLatest().then(data => {
+      if (isMounted) {
+        setStrategy(data);
+        setLoading(false);
+      }
+    }).catch(err => {
+      console.error('Error fetching marketing strategy:', err);
+      if (isMounted) {
+        setLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleGenerate = async () => {
