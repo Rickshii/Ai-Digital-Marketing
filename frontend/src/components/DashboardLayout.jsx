@@ -200,7 +200,11 @@ const DashboardLayout = ({ children }) => {
             {/* Notification Bell */}
             <div className="relative" ref={notifDropdownRef}>
               <button 
-                onClick={() => setNotificationDropdown(p => !p)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setNotificationDropdown(p => !p);
+                  if (profileDropdown) setProfileDropdown(false);
+                }}
                 className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
               >
                 <Bell className="h-4 w-4" />
@@ -254,7 +258,11 @@ const DashboardLayout = ({ children }) => {
             {/* Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setProfileDropdown(p => !p)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setProfileDropdown(p => !p);
+                  if (notificationDropdown) setNotificationDropdown(false);
+                }}
                 className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 hover:bg-slate-50 transition-all"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xs font-bold">
@@ -385,7 +393,7 @@ const DashboardLayout = ({ children }) => {
 
       {/* ──────────── MOBILE BOTTOM NAV ──────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-lg">
-        <div className="flex items-center justify-around h-16 px-2">
+        <div className="flex items-center justify-around h-16 px-1 sm:px-2 overflow-x-auto no-scrollbar">
           {visibleBottomNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -393,7 +401,7 @@ const DashboardLayout = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+                className={`flex flex-col items-center gap-1 px-2 sm:px-3 py-2 rounded-xl transition-all ${
                   active ? 'text-violet-600' : 'text-slate-400'
                 }`}
               >
@@ -402,7 +410,7 @@ const DashboardLayout = ({ children }) => {
                 }`}>
                   <Icon className="h-4 w-4" />
                 </div>
-                <span className="text-[9px] font-medium">{item.name}</span>
+                <span className="text-[9px] font-medium truncate w-full text-center">{item.name}</span>
               </Link>
             );
           })}

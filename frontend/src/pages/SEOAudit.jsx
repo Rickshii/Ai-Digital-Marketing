@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, CheckCircle, AlertTriangle, XCircle, Info,
   Globe, FileText, Zap, BarChart2, TrendingUp, Shield,
-  Link2, Image, BookOpen, Hash, Map, Bot, RefreshCw,
-  ChevronDown, ChevronUp, Clock, ExternalLink
+  ChevronDown, ChevronUp, Clock, ExternalLink, Download, Printer
 } from 'lucide-react';
+import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { auditAPI } from '../services/api';
 
 /* ─── helpers ──────────────────────────────────────────────────────────────── */
@@ -215,6 +215,15 @@ const SEOAudit = () => {
       <AnimatePresence>
       {data && (
         <motion.div key={data.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+
+          <div className="flex justify-end gap-2 mb-2">
+            <button onClick={() => generatePDF(data, 'SEO Audit')} className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-3 py-1.5 hover:opacity-90 transition-all shadow-sm">
+              <Download className="h-3 w-3" /> Download PDF
+            </button>
+            <button onClick={() => printReport(data, 'SEO Audit')} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-all hidden sm:flex">
+              <Printer className="h-3 w-3" /> Print
+            </button>
+          </div>
 
           {/* Score strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

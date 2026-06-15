@@ -3,9 +3,9 @@ import { businessAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Check, AlertTriangle, Globe, Phone, Mail,
-  MapPin, Users, Sparkles, ChevronRight, ChevronLeft, Briefcase,
-  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2
+  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2, Download, Printer
 } from 'lucide-react';
+import { generatePDF, printReport } from '../utils/pdfGenerator';
 
 const STEPS = ['Business Info', 'Contact & Location', 'Social & Google', 'Branches & Review'];
 
@@ -512,10 +512,18 @@ const BusinessProfile = () => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-full">{selected.industry_type}</span>
-                        <button onClick={() => startEditMode(selected)}
-                          className="flex items-center gap-1.5 text-xs text-violet-600 border border-violet-200 rounded-xl px-3.5 py-1.5 hover:bg-violet-50 transition-all font-semibold shadow-sm bg-white">
-                          <Edit2 className="h-3.5 w-3.5" /> Edit Profile
-                        </button>
+                        <div className="flex gap-2">
+                          <button onClick={() => generatePDF(selected, 'Business Profile')} className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-3 py-1.5 hover:opacity-90 transition-all shadow-sm">
+                            <Download className="h-3 w-3" /> Download PDF
+                          </button>
+                          <button onClick={() => printReport(selected, 'Business Profile')} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-all hidden sm:flex">
+                            <Printer className="h-3 w-3" /> Print
+                          </button>
+                          <button onClick={() => startEditMode(selected)}
+                            className="flex items-center gap-1.5 text-xs text-violet-600 border border-violet-200 rounded-xl px-3.5 py-1.5 hover:bg-violet-50 transition-all font-semibold shadow-sm bg-white">
+                            <Edit2 className="h-3.5 w-3.5" /> Edit Profile
+                          </button>
+                        </div>
                       </div>
                       <h2 className="text-xl font-extrabold text-slate-800 mt-2">{selected.business_name}</h2>
                       <div className="flex flex-wrap gap-3 mt-2 text-xs text-slate-500">

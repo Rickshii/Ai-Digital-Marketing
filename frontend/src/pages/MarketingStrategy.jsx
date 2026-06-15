@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Megaphone, Calendar, Target, TrendingUp, Zap, CheckCircle,
-  Clock, Flag, BarChart2, Users, Mail, Globe, Sparkles, BookOpen, Key
+  Clock, Flag, BarChart2, Users, Mail, Globe, Sparkles, BookOpen, Key, Download, Printer
 } from 'lucide-react';
+import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { strategyAPI } from '../services/api';
 
 const statusConfig = {
@@ -95,18 +96,26 @@ const MarketingStrategy = () => {
           <h1 className="text-2xl font-extrabold text-slate-800">Marketing Strategy</h1>
           <p className="text-slate-500 text-sm mt-0.5">Rule-based growth roadmap tailored to your business scores</p>
         </div>
-        <motion.button
-          onClick={handleGenerate}
-          disabled={regenerating}
-          whileTap={{ scale: 0.97 }}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 hover:opacity-95 disabled:opacity-60 transition-all"
-        >
-          {regenerating ? (
-            <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating Strategy...</>
-          ) : (
-            <><Zap className="h-4 w-4" /> Recalculate Strategy</>
-          )}
-        </motion.button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button onClick={() => generatePDF(strategy, 'Marketing Strategy')} className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-4 py-2 hover:opacity-90 transition-all shadow-sm">
+            <Download className="h-4 w-4" /> Download PDF
+          </button>
+          <button onClick={() => printReport(strategy, 'Marketing Strategy')} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-4 py-2 hover:bg-slate-50 transition-all hidden sm:flex">
+            <Printer className="h-4 w-4" /> Print
+          </button>
+          <motion.button
+            onClick={handleGenerate}
+            disabled={regenerating}
+            whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-500/20 hover:opacity-95 disabled:opacity-60 transition-all"
+          >
+            {regenerating ? (
+              <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating...</>
+            ) : (
+              <><Zap className="h-4 w-4" /> Recalculate</>
+            )}
+          </motion.button>
+        </div>
       </div>
 
       {/* Summary Cards */}

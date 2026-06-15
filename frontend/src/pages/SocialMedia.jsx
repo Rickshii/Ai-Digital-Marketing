@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Share2, Users, CheckCircle, XCircle, AlertTriangle,
   Globe, Link2, MessageCircle, Clock, RefreshCw, TrendingUp,
-  ArrowUp, BarChart2, Lightbulb, Activity
+  ArrowUp, BarChart2, Lightbulb, Activity, Download, Printer
 } from 'lucide-react';
+import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { socialAPI } from '../services/api';
 
 /* ─── SVG brand icons ─────────────────────────────────────────────────────── */
@@ -185,6 +186,16 @@ const SocialMedia = () => {
       <AnimatePresence>
       {data && (
         <motion.div key={data.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+
+          {/* Actions / Buttons */}
+          <div className="flex justify-end gap-2 mb-2">
+            <button onClick={() => generatePDF(data, 'Social Media')} className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-3 py-1.5 hover:opacity-90 transition-all shadow-sm">
+              <Download className="h-3 w-3" /> Download PDF
+            </button>
+            <button onClick={() => printReport(data, 'Social Media')} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-all hidden sm:flex">
+              <Printer className="h-3 w-3" /> Print
+            </button>
+          </div>
 
           {/* KPI row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -11,7 +11,7 @@ connect_args = {}
 if settings.USE_SQLITE_FALLBACK:
     try:
         # Attempt to test postgresql connection
-        temp_engine = create_engine(db_url, connect_timeout=3)
+        temp_engine = create_engine(db_url, connect_args={'connect_timeout': 3})
         with temp_engine.connect() as conn:
             pass
         logger.info("Successfully connected to PostgreSQL database.")

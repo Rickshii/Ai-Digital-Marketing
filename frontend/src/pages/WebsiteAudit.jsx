@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Globe, Search, Zap, CheckCircle, AlertTriangle, Info,
   Loader, ArrowRight, Shield, Smartphone, Clock, TrendingUp,
-  BarChart2, RefreshCw, ExternalLink
+  BarChart2, RefreshCw, ExternalLink, Download, Printer
 } from 'lucide-react';
+import { generatePDF, printReport } from '../utils/pdfGenerator';
 
 const ScoreRing = ({ score, size = 80, color = '#8B5CF6' }) => {
   const r = 34, c = 2 * Math.PI * r;
@@ -199,9 +200,17 @@ const WebsiteAudit = () => {
                       </a>
                       <p className="text-xs text-slate-400 mt-1">{new Date(selected.created_at).toLocaleString()}</p>
                     </div>
-                    <button onClick={() => setUrl(selected.website_url)} className="flex items-center gap-1.5 text-xs text-violet-600 border border-violet-200 rounded-xl px-3 py-1.5 hover:bg-violet-50 transition-all">
-                      <RefreshCw className="h-3 w-3" /> Re-scan
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={() => setUrl(selected.website_url)} className="flex items-center gap-1.5 text-xs text-violet-600 border border-violet-200 rounded-xl px-3 py-1.5 hover:bg-violet-50 transition-all">
+                        <RefreshCw className="h-3 w-3" /> Re-scan
+                      </button>
+                      <button onClick={() => generatePDF(selected, 'Website Audit')} className="flex items-center gap-1.5 text-xs text-white bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-3 py-1.5 hover:opacity-90 transition-all shadow-sm">
+                        <Download className="h-3 w-3" /> Download PDF
+                      </button>
+                      <button onClick={() => printReport(selected, 'Website Audit')} className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-xl px-3 py-1.5 hover:bg-slate-50 transition-all hidden sm:flex">
+                        <Printer className="h-3 w-3" /> Print
+                      </button>
+                    </div>
                   </div>
 
                   {/* Score Ring Grid */}
