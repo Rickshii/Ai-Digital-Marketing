@@ -89,14 +89,29 @@ const Settings = () => {
   };
 
   const handleSave = async () => {
-    if (section === 'profile' && businessProfile) {
+    if (section === 'profile') {
       try {
-        await businessAPI.updateProfile(businessProfile.id, {
-          contact_number: profileForm.phone,
-          business_name: profileForm.company,
-          business_location: profileForm.location,
-          description: profileForm.bio
-        });
+        if (businessProfile) {
+          await businessAPI.updateProfile(businessProfile.id, {
+            contact_number: profileForm.phone,
+            business_name: profileForm.company,
+            business_location: profileForm.location,
+            description: profileForm.bio
+          });
+        } else {
+          const newProfile = await businessAPI.createProfile({
+            business_name: profileForm.company || 'My Business',
+            contact_number: profileForm.phone,
+            business_location: profileForm.location,
+            description: profileForm.bio,
+            business_category: 'Other',
+            industry_type: 'Other',
+            website_url: '',
+            target_audience: 'General',
+            email: profileForm.email,
+          });
+          setBusinessProfile(newProfile);
+        }
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
       } catch (err) {

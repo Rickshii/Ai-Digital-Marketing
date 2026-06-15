@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { auditAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Globe, Search, Zap, CheckCircle, AlertTriangle, Info,
-  Loader, ArrowRight, Shield, Smartphone, Clock, TrendingUp,
+  Globe, Zap, AlertTriangle, Info,
+  Loader, Shield, Smartphone, Clock, TrendingUp,
   BarChart2, RefreshCw, ExternalLink, Download, Printer
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
@@ -94,7 +94,7 @@ const WebsiteAudit = () => {
       setAudits(prev => [result, ...prev]);
       setSelected(result);
       setUrl('');
-    } catch (err) {
+    } catch {
       setError('Scan failed. Please check the URL and try again.');
     } finally {
       setScanning(false);

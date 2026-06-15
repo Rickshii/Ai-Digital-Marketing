@@ -3,7 +3,8 @@ import { businessAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Check, AlertTriangle, Globe, Phone, Mail,
-  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2, Download, Printer
+  Edit2, Save, TrendingUp, Calendar, Loader, X, Building2, Link2, Download, Printer,
+  Briefcase, MapPin, Users, Sparkles, ChevronRight
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
 

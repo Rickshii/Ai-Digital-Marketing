@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, FileText, Search, Shield, Trash2, Eye, Download, Calendar,
-  TrendingUp, Globe, Plus, X, BarChart2, CheckCircle, Clock, AlertTriangle, AlertCircle
+  Shield, Trash2, Eye,
+  TrendingUp, Globe, AlertCircle
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 

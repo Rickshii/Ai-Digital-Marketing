@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, CheckCircle, AlertTriangle, XCircle, Info,
+  Search, AlertTriangle, XCircle, Info,
   Globe, FileText, Zap, BarChart2, TrendingUp, Shield,
-  ChevronDown, ChevronUp, Clock, ExternalLink, Download, Printer
+  ChevronDown, ChevronUp, Clock, ExternalLink, Download, Printer,
+  Hash, Cpu, MapPin, Link2, ImageIcon, BookOpen, RefreshCw, CheckCircle
 } from 'lucide-react';
 import { generatePDF, printReport } from '../utils/pdfGenerator';
 import { auditAPI } from '../services/api';
@@ -269,18 +270,18 @@ const SEOAudit = () => {
             {/* Technical checks grid */}
             <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-3 content-start">
               {[
-                { icon: Shield,   label: 'HTTPS',        value: data.is_https ? '✓ Secure' : '✗ Not Secure', color: data.is_https ? 'bg-emerald-500' : 'bg-red-500' },
-                { icon: Bot,      label: 'Robots.txt',   value: data.has_robots_txt ? '✓ Found' : '✗ Missing',   color: data.has_robots_txt ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Map,      label: 'Sitemap',      value: data.has_sitemap ? '✓ Found' : '✗ Missing',      color: data.has_sitemap ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Link2,    label: 'Canonical',    value: data.has_canonical ? '✓ Set' : '✗ Missing',     color: data.has_canonical ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: FileText, label: 'Title Length', value: `${(data.title || '').length} chars`,           color: (data.title||'').length >= 30 && (data.title||'').length <= 60 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: FileText, label: 'Meta Length',  value: `${(data.meta_description || '').length} chars`,color: (data.meta_description||'').length >= 120 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Hash,     label: 'H1 Tags',      value: `${(data.h1_tags || []).length} found`,         color: (data.h1_tags||[]).length === 1 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Hash,     label: 'H2 Tags',      value: `${(data.h2_tags || []).length} found`,         color: (data.h2_tags||[]).length > 0 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Image,    label: 'Images',       value: `${data.images_count || 0} total / ${(data.image_alt_tags || {}).missing_alt || 0} no-alt`, color: ((data.image_alt_tags||{}).missing_alt || 0) === 0 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: BookOpen, label: 'Readability',  value: data.readability_grade || '—',                  color: ['Easy','Very Easy'].includes(data.readability_grade) ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Zap,      label: 'Scripts',      value: `${data.scripts_count || 0}`,                   color: (data.scripts_count || 0) <= 20 ? 'bg-emerald-500' : 'bg-amber-500' },
-                { icon: Zap,      label: 'Stylesheets',  value: `${data.stylesheets_count || 0}`,               color: (data.stylesheets_count || 0) <= 10 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Shield,    label: 'HTTPS',        value: data.is_https ? '✓ Secure' : '✗ Not Secure',   color: data.is_https ? 'bg-emerald-500' : 'bg-red-500' },
+                { icon: Cpu,       label: 'Robots.txt',   value: data.has_robots_txt ? '✓ Found' : '✗ Missing',  color: data.has_robots_txt ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: MapPin,    label: 'Sitemap',      value: data.has_sitemap ? '✓ Found' : '✗ Missing',     color: data.has_sitemap ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Link2,     label: 'Canonical',    value: data.has_canonical ? '✓ Set' : '✗ Missing',    color: data.has_canonical ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: FileText,  label: 'Title Length', value: `${(data.title || '').length} chars`,           color: (data.title||'').length >= 30 && (data.title||'').length <= 60 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: FileText,  label: 'Meta Length',  value: `${(data.meta_description || '').length} chars`,color: (data.meta_description||'').length >= 120 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Hash,      label: 'H1 Tags',      value: `${(data.h1_tags || []).length} found`,         color: (data.h1_tags||[]).length === 1 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Hash,      label: 'H2 Tags',      value: `${(data.h2_tags || []).length} found`,         color: (data.h2_tags||[]).length > 0 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: ImageIcon, label: 'Images',       value: `${data.images_count || 0} total / ${(data.image_alt_tags || {}).missing_alt || 0} no-alt`, color: ((data.image_alt_tags||{}).missing_alt || 0) === 0 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: BookOpen,  label: 'Readability',  value: data.readability_grade || '—',                  color: ['Easy','Very Easy'].includes(data.readability_grade) ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Zap,       label: 'Scripts',      value: `${data.scripts_count || 0}`,                   color: (data.scripts_count || 0) <= 20 ? 'bg-emerald-500' : 'bg-amber-500' },
+                { icon: Zap,       label: 'Stylesheets',  value: `${data.stylesheets_count || 0}`,               color: (data.stylesheets_count || 0) <= 10 ? 'bg-emerald-500' : 'bg-amber-500' },
               ].map((c, i) => (
                 <motion.div key={c.label} initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.04 }}>
                   <CheckCard {...c} />

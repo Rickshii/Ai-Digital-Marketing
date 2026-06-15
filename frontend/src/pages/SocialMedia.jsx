@@ -87,19 +87,20 @@ const SocialMedia = () => {
   const [tab, setTab]         = useState('overview');
   const [error, setError]     = useState('');
 
-  useEffect(() => {
-    socialAPI.getHistory().then(h => {
-      setHistory(h);
-      if (h.length) { setData(h[0]); prefillUrls(h[0]); }
-    }).catch(() => {});
-  }, []);
-
   const prefillUrls = (d) => setUrls({
     facebook_url:  d.facebook_url  || '',
     instagram_url: d.instagram_url || '',
     linkedin_url:  d.linkedin_url  || '',
     youtube_url:   d.youtube_url   || '',
   });
+
+  useEffect(() => {
+    socialAPI.getHistory().then(h => {
+      setHistory(h);
+      if (h.length) { setData(h[0]); prefillUrls(h[0]); }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRun = async (e) => {
     e.preventDefault();
@@ -139,7 +140,7 @@ const SocialMedia = () => {
           <Share2 className="h-4 w-4 text-violet-500" /> Enter Social Media Profile URLs
         </h2>
         <div className="grid sm:grid-cols-2 gap-4 mb-5">
-          {PLATFORMS.map(({ key, label, Icon, field, placeholder, grad }) => (
+          {PLATFORMS.map(({ key, Icon, field, placeholder, grad }) => (
             <div key={key} className="relative">
               <div className={`absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-lg bg-gradient-to-br ${grad} text-white`}>
                 <Icon className="h-3.5 w-3.5" />
@@ -159,10 +160,10 @@ const SocialMedia = () => {
         </motion.button>
         {loading && (
           <div className="mt-4 space-y-1.5">
-            {PLATFORMS.map(({ label }, i) => (
-              <motion.p key={label} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.5 }}
+            {PLATFORMS.map(({ key: pKey, label: pName }) => (
+              <motion.p key={pKey} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: PLATFORMS.findIndex(p => p.key === pKey) * 0.5 }}
                 className="text-xs text-slate-400 flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />Checking {label} profile…
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />Checking {pName} profile…
               </motion.p>
             ))}
           </div>

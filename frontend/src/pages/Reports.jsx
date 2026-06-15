@@ -6,6 +6,7 @@ import {
   Star, Filter, Eye, Trash2, Plus, Printer, X, Sparkles, Shield, Key
 } from 'lucide-react';
 import { reportsAPI } from '../services/api';
+import html2pdf from 'html2pdf.js';
 
 const typeConfig = {
   comprehensive: { label: 'Full Report', color: 'from-violet-500 to-purple-600', icon: BarChart2, bg: 'bg-violet-50 text-violet-700 border-violet-200' },
@@ -64,66 +65,105 @@ const Reports = () => {
   };
 
   const handleDownload = (report) => {
-    const divider = "=================================================================";
-    const content = `
-${divider}
-                       MARKETERAI REPORT
-${divider}
-Report ID:   ${report.report_id}
-Title:       ${report.title}
-Date:        ${new Date(report.created_at).toLocaleString()}
-Type:        ${report.type.toUpperCase()}
+    const element = document.createElement('div');
+    element.innerHTML = `
+      <div style="font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; background-color: #ffffff; max-width: 800px; margin: 0 auto;">
+        <div style="border-bottom: 2px solid #8b5cf6; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h1 style="font-size: 24px; font-weight: bold; color: #0f172a; margin: 0;">${report.title}</h1>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">
+              Report ID: ${report.report_id} | Created: ${new Date(report.created_at).toLocaleDateString()} | Type: Comprehensive Audit
+            </p>
+          </div>
+          <div style="font-size: 18px; font-weight: 800; color: #8b5cf6; letter-spacing: -0.5px;">MarketerAI ✨</div>
+        </div>
+        
+        <div style="margin-bottom: 35px;">
+          <h3 style="font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase;">Consolidated Performance Scores</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+            ${Object.entries(report.scores || {}).map(([k, v]) => `
+              <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; text-align: center; background: #f8fafc; flex: 1; min-width: 100px;">
+                <div style="font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 5px;">${k}</div>
+                <div style="font-size: 24px; font-weight: 800; color: #8b5cf6;">${v}%</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
 
-SCORES OVERVIEW:
-${Object.entries(report.scores || {}).map(([k, v]) => `  - ${k.toUpperCase()}: ${v}%`).join('\n')}
+        <div style="margin-bottom: 35px; page-break-inside: avoid;">
+          <h3 style="font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase;">Business & Website Overview</h3>
+          <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #0f172a;">Company Profile</h4>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Business Name</span><span style="color: #1e293b; font-weight: 600;">${report.business_overview?.business_name || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Industry Type</span><span style="color: #1e293b; font-weight: 600;">${report.business_overview?.industry_type || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Location</span><span style="color: #1e293b; font-weight: 600;">${report.business_overview?.business_location || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Target Audience</span><span style="color: #1e293b; font-weight: 600;">${report.business_overview?.target_audience || 'N/A'}</span></div>
+            </div>
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #0f172a;">Technical Site Analysis</h4>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Website URL</span><span style="color: #1e293b; font-weight: 600;">${report.website_audit?.website_url || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Load Time</span><span style="color: #1e293b; font-weight: 600;">${report.website_audit?.load_time || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">HTTPS Enabled</span><span style="color: #1e293b; font-weight: 600;">${report.website_audit?.is_https ? 'Yes (Secure)' : 'No (Insecure)'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Sitemap.xml</span><span style="color: #1e293b; font-weight: 600;">${report.seo_audit?.has_sitemap ? 'Detected' : 'Missing'}</span></div>
+            </div>
+          </div>
+        </div>
 
-BUSINESS DESCRIPTION:
-  - Name:      ${report.business_overview?.business_name || 'N/A'}
-  - Industry:  ${report.business_overview?.industry_type || 'N/A'}
-  - Website:   ${report.business_overview?.website_url || 'N/A'}
-  - Location:  ${report.business_overview?.business_location || 'N/A'}
+        <div style="margin-bottom: 35px; page-break-inside: avoid;">
+          <h3 style="font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase;">SEO & Speed Improvement Actions</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+            ${(report.website_audit?.improvement_suggestions || []).map(s => `
+              <li style="background: #f8fafc; border-left: 4px solid #8b5cf6; padding: 12px; margin-bottom: 10px; font-size: 13px; border-radius: 0 8px 8px 0;">
+                <strong>Technical:</strong> ${s}
+              </li>
+            `).join('') || '<p style="font-size: 13px; color: #64748b;">No high-priority site issues identified.</p>'}
+          </ul>
+        </div>
 
-WEBSITE AUDIT RESULTS:
-  - Health Score:  ${report.website_audit?.health_score || 0}%
-  - Load Speed:    ${report.website_audit?.load_time || 'N/A'}
-  - HTTPS Secure:  ${report.website_audit?.is_https ? 'Yes' : 'No'}
-  - Suggestions:
-${(report.website_audit?.improvement_suggestions || []).map((s, idx) => `    ${idx + 1}. ${s}`).join('\n')}
+        <div style="margin-bottom: 35px; page-break-inside: avoid;">
+          <h3 style="font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase;">Social Media Presence & Channels</h3>
+          <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Facebook Profile</span><span style="color: #1e293b; font-weight: 600;">${report.social_media_analysis?.facebook_url ? 'Configured' : 'Not Connected'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Instagram Profile</span><span style="color: #1e293b; font-weight: 600;">${report.social_media_analysis?.instagram_url ? 'Configured' : 'Not Connected'}</span></div>
+            </div>
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">LinkedIn Profile</span><span style="color: #1e293b; font-weight: 600;">${report.social_media_analysis?.linkedin_url ? 'Configured' : 'Not Connected'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">YouTube Channel</span><span style="color: #1e293b; font-weight: 600;">${report.social_media_analysis?.youtube_url ? 'Configured' : 'Not Connected'}</span></div>
+            </div>
+          </div>
+        </div>
 
-SEO AUDIT RESULTS:
-  - SEO Score:     ${report.seo_audit?.seo_score || 0}%
-  - Sitemap.xml:   ${report.seo_audit?.has_sitemap ? 'Detected' : 'Missing'}
-  - Robots.txt:    ${report.seo_audit?.has_robots_txt ? 'Detected' : 'Missing'}
+        <div style="margin-bottom: 35px; page-break-inside: avoid;">
+          <h3 style="font-size: 14px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 15px; color: #0f172a; text-transform: uppercase;">Strategic Growth Recommendations</h3>
+          <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #0f172a;">Lead Capture Model</h4>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Suggested Lead Magnet</span><span style="color: #1e293b; font-weight: 600;">${report.marketing_strategy?.lead_gen_strategy?.recommended_lead_magnet || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Projected Monthly Reach</span><span style="color: #1e293b; font-weight: 600;">${report.marketing_strategy?.reach_estimate || 'N/A'}</span></div>
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding: 6px 0; font-size: 13px;"><span style="color: #64748b; font-weight: 500;">Projected Campaign ROI</span><span style="color: #1e293b; font-weight: 600;">${report.marketing_strategy?.projected_roi || 'N/A'}</span></div>
+            </div>
+            <div style="flex: 1;">
+              <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #0f172a;">Brand Messaging</h4>
+              <p style="font-size: 12px; margin: 0; color: #475569; line-height: 1.5;">
+                ${report.marketing_strategy?.branding_strategy?.positioning_statement || 'N/A'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
-SOCIAL MEDIA ANALYSIS:
-  - Social Score:  ${report.social_media_analysis?.social_score || 0}%
-  - Channels Analyzed:
-    * Facebook:    ${report.social_media_analysis?.facebook_url || 'Not Set'}
-    * Instagram:   ${report.social_media_analysis?.instagram_url || 'Not Set'}
-    * LinkedIn:    ${report.social_media_analysis?.linkedin_url || 'Not Set'}
-    * YouTube:     ${report.social_media_analysis?.youtube_url || 'Not Set'}
-  - Growth Actions:
-${(report.social_media_analysis?.growth_suggestions || []).map((s, idx) => `    * ${s}`).join('\n')}
+    const opt = {
+      margin:       0.5,
+      filename:     \`${report.title.toLowerCase().replace(/ /g, '_')}_report.pdf\`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2, useCORS: true },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
 
-MARKETING STRATEGY PROJECTIONS:
-  - Recommended Lead Magnet: ${report.marketing_strategy?.lead_gen_strategy?.recommended_lead_magnet || 'N/A'}
-  - Est. Monthly Reach:      ${report.marketing_strategy?.reach_estimate || 'N/A'}
-  - Projected ROI:           ${report.marketing_strategy?.projected_roi || 'N/A'}
-
-${divider}
-  This document serves as a consolidated performance report.
-  Powered by MarketerAI Digital Marketing Consultant.
-${divider}
-`;
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${report.title.toLowerCase().replace(/ /g, '_')}_report.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    html2pdf().set(opt).from(element).save();
   };
 
   const handlePrint = (report) => {

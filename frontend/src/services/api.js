@@ -238,11 +238,12 @@ export const authAPI = {
         const matchedUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
         
         if (email.includes('demo') || email.includes('admin') || matchedUser) {
+          const isAdminEmail = email.toLowerCase().includes('admin');
           const userObj = matchedUser || {
             id: Date.now(),
             email: email,
             full_name: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, c => c.toUpperCase()),
-            role: 'Enterprise Consultant',
+            role: isAdminEmail ? 'admin' : 'user',
             company: 'GrowthHackers Agency'
           };
           
@@ -1064,7 +1065,6 @@ export const adminAPI = {
       },
       () => {
         const users = getLocalData('mock_users', []);
-        const profiles = getLocalData('mock_profiles', []);
         const audits = getLocalData('mock_audits', []);
         const socials = getLocalData('mock_social_analyses', []);
         const reports = getLocalData('mock_reports', []);
