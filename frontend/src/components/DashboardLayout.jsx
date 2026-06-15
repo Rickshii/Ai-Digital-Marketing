@@ -36,7 +36,11 @@ const DashboardLayout = ({ children }) => {
   const [notifications, setNotifications] = useState(3);
   const dropdownRef = useRef(null);
 
-  const isAdmin = user?.role === 'admin' || user?.email?.includes('admin');
+  const isAdmin = user?.role === 'admin'
+    || user?.role?.toLowerCase().includes('admin')
+    || user?.role?.toLowerCase().includes('enterprise')
+    || user?.email?.toLowerCase().includes('admin');
+
   const visibleNavItems = [...navItems];
   if (isAdmin && !visibleNavItems.some(item => item.path === '/admin')) {
     visibleNavItems.push({
@@ -47,10 +51,16 @@ const DashboardLayout = ({ children }) => {
     });
   }
 
-  const visibleBottomNavItems = [...bottomNavItems];
-  if (isAdmin && !visibleBottomNavItems.some(item => item.path === '/admin')) {
-    visibleBottomNavItems.push({ name: 'Admin', path: '/admin', icon: Shield });
-  }
+  // On mobile bottom nav, replace 'More' with 'Admin' when user is admin (keep 5 items max)
+  const visibleBottomNavItems = isAdmin
+    ? [
+        { name: 'Home',     path: '/',        icon: LayoutDashboard },
+        { name: 'Business', path: '/business', icon: Briefcase },
+        { name: 'Audit',    path: '/audit',    icon: Globe },
+        { name: 'Reports',  path: '/reports',  icon: FileText },
+        { name: 'Admin',    path: '/admin',    icon: Shield },
+      ]
+    : [...bottomNavItems];
 
   const handleLogout = () => {
     logout();

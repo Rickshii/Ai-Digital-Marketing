@@ -289,11 +289,12 @@ export const authAPI = {
             }
           };
         }
+        const isAdminEmail = email.toLowerCase().includes('admin');
         const newUser = {
           id: Date.now(),
           email,
           full_name: fullName,
-          role: role === 'admin' ? 'Enterprise Consultant' : 'Marketing Associate',
+          role: (role === 'admin' || isAdminEmail) ? 'admin' : 'user',
           company: 'SaaS Startup'
         };
         users.push(newUser);
@@ -303,6 +304,7 @@ export const authAPI = {
     );
   },
 
+
   getMe: async () => {
     return executeWithFallback(
       async () => {
@@ -311,11 +313,25 @@ export const authAPI = {
       },
       () => {
         const storedUser = localStorage.getItem('user');
-        if (storedUser) return JSON.parse(storedUser);
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          // Normalize legacy display-role values to 'admin'/'user'
+          const legacyAdminRoles = ['Enterprise Consultant', 'enterprise consultant'];
+          if (legacyAdminRoles.includes(user.role) || user.email?.toLowerCase().includes('admin')) {
+            user.role = 'admin';
+          } else if (!['admin', 'user'].includes(user.role)) {
+            user.role = 'user';
+          }
+          // Persist the normalized role back so it's consistent
+          localStorage.setItem('user', JSON.stringify(user));
+          return user;
+        }
         throw { response: { status: 401 } };
       }
     );
   },
+
+
 
   forgotPassword: async (email, newPassword) => {
     return executeWithFallback(
@@ -1117,7 +1133,7 @@ export const adminAPI = {
           id: u.id,
           email: u.email,
           full_name: u.full_name,
-          role: u.email.includes('admin') || (u.role && u.role.includes('Enterprise')) ? 'admin' : 'user',
+          role: u.role === 'admin' || u.email.includes('admin') ? 'admin' : 'user',
           created_at: u.created_at || new Date().toISOString(),
           audits_count: audits.length,
           reports_count: reports.length
