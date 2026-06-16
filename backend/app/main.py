@@ -10,6 +10,8 @@ from app.models.audit import WebsiteAudit
 from app.models.social_media import SocialMediaAnalysis
 from app.models.marketing_strategy import MarketingStrategy
 from app.models.report import Report
+from app.models.subscription import TrialHistory, Subscription, Payment, UserAccessLog
+
 
 # Dynamically create tables on startup for simplicity in testing
 Base.metadata.create_all(bind=engine)
@@ -54,7 +56,7 @@ def upgrade_db_schema():
 upgrade_db_schema()
 
 from app.api import auth, business, audit
-from app.api import social_media, strategy, reports, admin
+from app.api import social_media, strategy, reports, admin, subscription
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -88,6 +90,8 @@ app.include_router(social_media.router, prefix="/api")
 app.include_router(strategy.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(subscription.router, prefix="/api")
+
 
 @app.get("/")
 def read_root():

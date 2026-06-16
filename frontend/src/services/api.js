@@ -1072,6 +1072,126 @@ export const reportsAPI = {
   }
 };
 
+export const subscriptionAPI = {
+  getStatus: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/subscription/status');
+        return response.data;
+      },
+      () => {
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : null;
+        if (!user) return { has_access: false, trial_active: false, trial_days_left: 0 };
+        
+        const isAdmin = user.role === 'admin' || user.email?.toLowerCase().includes('admin');
+        if (isAdmin) {
+          return {
+            has_access: true,
+            trial_active: true,
+            trial_days_left: 9999,
+            subscription_active: true,
+            subscription_plan: "Enterprise Admin",
+            role: "admin"
+          };
+        }
+
+        const mockSub = getLocalData('mock_subscription', {
+          has_access: true,
+          trial_active: true,
+          trial_days_left: 3,
+          trial_start: new Date().toISOString(),
+          trial_expiry: new Date(Date.now() + 3600000 * 24 * 3).toISOString(),
+          subscription_active: false,
+          subscription_plan: null,
+          subscription_expiry: null,
+          role: "user"
+        });
+        
+        const now = new Date();
+        const trialExpiry = new Date(mockSub.trial_expiry);
+        const subExpiry = mockSub.subscription_expiry ? new Date(mockSub.subscription_expiry) : null;
+        
+        const trialActive = trialExpiry > now;
+        const subActive = subExpiry ? subExpiry > now : false;
+        
+        const delta = trialExpiry - now;
+        const trialDaysLeft = Math.max(0, Math.ceil(delta / (1000 * 60 * 60 * 24)));
+        
+        const updated = {
+          ...mockSub,
+          trial_active: trialActive,
+          trial_days_left: trialDaysLeft,
+          subscription_active: subActive,
+          has_access: trialActive || subActive
+        };
+        
+        setLocalData('mock_subscription', updated);
+        return updated;
+      }
+    );
+  },
+
+  createOrder: async (planName) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/subscription/create-order', { plan_name: planName });
+        return response.data;
+      },
+      () => {
+        const prices = {
+          "15 Days": 299,
+          "1 Month": 499,
+          "3 Months": 1299,
+          "6 Months": 2299,
+          "1 Year": 3999
+        };
+        return {
+          success: true,
+          order_id: `mock_order_${Math.random().toString(36).substring(2, 14)}`,
+          amount: prices[planName] || 499,
+          currency: "INR",
+          key_id: "dummy_key",
+          is_mock: true
+        };
+      }
+    );
+  },
+
+  verifyPayment: async (verificationData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/subscription/verify-payment', verificationData);
+        return response.data;
+      },
+      () => {
+        const durationDays = {
+          "15 Days": 15,
+          "1 Month": 30,
+          "3 Months": 90,
+          "6 Months": 180,
+          "1 Year": 365
+        }[verificationData.plan_name] || 30;
+
+        const mockSub = getLocalData('mock_subscription', {});
+        const now = new Date();
+        const expiry = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+        const updated = {
+          ...mockSub,
+          has_access: true,
+          subscription_active: true,
+          subscription_plan: verificationData.plan_name,
+          subscription_expiry: expiry.toISOString(),
+        };
+        setLocalData('mock_subscription', updated);
+        return { success: true, detail: "Subscription activated successfully." };
+      }
+    );
+  }
+};
+
+
 export const adminAPI = {
   getStats: async () => {
     return executeWithFallback(
@@ -1118,26 +1238,96 @@ export const adminAPI = {
     );
   },
 
-  getUsers: async () => {
+  getUsers: async (params = {}) => {
     return executeWithFallback(
       async () => {
-        const response = await api.get('/admin/users');
+        const response = await api.get('/admin/users', { params });
         return response.data;
       },
       () => {
         const users = getLocalData('mock_users', []);
         const audits = getLocalData('mock_audits', []);
         const reports = getLocalData('mock_reports', []);
-
-        return users.map(u => ({
+        const profiles = getLocalData('mock_profiles', []);
+        
+        let result = users.map(u => ({
           id: u.id,
           email: u.email,
           full_name: u.full_name,
           role: u.role === 'admin' || u.email.includes('admin') ? 'admin' : 'user',
           created_at: u.created_at || new Date().toISOString(),
           audits_count: audits.length,
-          reports_count: reports.length
+          reports_count: reports.length,
+          business_profiles: profiles,
+          access: {
+            has_access: true,
+            trial_active: true,
+            trial_days_left: 3,
+            subscription_active: false,
+            subscription_plan: null,
+            role: u.role === 'admin' || u.email.includes('admin') ? 'admin' : 'user'
+          },
+          payments: []
         }));
+
+        if (params.search) {
+          const s = params.search.toLowerCase();
+          result = result.filter(u => u.full_name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s));
+        }
+        if (params.role) {
+          result = result.filter(u => u.role === params.role);
+        }
+        return result;
+      }
+    );
+  },
+
+  previewUser: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get(`/admin/users/${id}`);
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const matched = users.find(u => u.id === id || u.id === parseInt(id));
+        if (!matched) throw { response: { status: 404 } };
+        return {
+          id: matched.id,
+          email: matched.email,
+          full_name: matched.full_name,
+          role: matched.role,
+          created_at: matched.created_at || new Date().toISOString(),
+          audits_count: 2,
+          reports_count: 1,
+          business_profiles: getLocalData('mock_profiles', []),
+          access: {
+            has_access: true,
+            trial_active: true,
+            trial_days_left: 3,
+            subscription_active: false,
+            subscription_plan: null,
+            role: matched.role
+          },
+          payments: []
+        };
+      }
+    );
+  },
+
+  updateUser: async (id, updateData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.put(`/admin/users/${id}`, updateData);
+        return response.data;
+      },
+      () => {
+        const users = getLocalData('mock_users', []);
+        const idx = users.findIndex(u => u.id === id || u.id === parseInt(id));
+        if (idx === -1) throw { response: { status: 404 } };
+        users[idx] = { ...users[idx], ...updateData };
+        setLocalData('mock_users', users);
+        return { ...users[idx], detail: "User updated successfully." };
       }
     );
   },

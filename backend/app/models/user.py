@@ -17,3 +17,8 @@ class User(Base):
     business_profiles = relationship("BusinessProfile", back_populates="user", cascade="all, delete-orphan")
     website_audits = relationship("WebsiteAudit", back_populates="user", cascade="all, delete-orphan")
     social_media_analyses = relationship("SocialMediaAnalysis", back_populates="user", cascade="all, delete-orphan")
+    subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
+    payments = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    trial_histories = relationship("TrialHistory", back_populates="user", cascade="all, delete-orphan")
+    access_logs = relationship("UserAccessLog", back_populates="user", cascade="all, delete-orphan")
+

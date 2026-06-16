@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_current_active_user
 from app.models.user import User as UserModel
 from app.schemas.report import ReportResponse, ReportCreate
 from app.services.report_service import ReportService
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/reports", tags=["Consolidated PDF Reports"])
 def generate_report(
     report_in: ReportCreate,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
     try:
         return ReportService.generate_report(db=db, user_id=current_user.id, report_in=report_in)
@@ -27,7 +27,7 @@ def generate_report(
 @router.get("/", response_model=List[ReportResponse])
 def get_reports(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
     return ReportService.get_user_reports(db=db, user_id=current_user.id)
 
@@ -35,7 +35,7 @@ def get_reports(
 def get_report(
     report_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
     report = ReportService.get_report(db=db, report_id=report_id, user_id=current_user.id)
     if not report:
@@ -49,8 +49,9 @@ def get_report(
 def delete_report(
     report_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_active_user)
 ):
+
     success = ReportService.delete_report(db=db, report_id=report_id, user_id=current_user.id)
     if not success:
         raise HTTPException(

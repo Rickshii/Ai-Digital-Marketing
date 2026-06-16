@@ -1,13 +1,25 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useState, useEffect, useContext } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, subscriptionAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [accessStatus, setAccessStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const refreshAccessStatus = async () => {
+    try {
+      const statusData = await subscriptionAPI.getStatus();
+      setAccessStatus(statusData);
+      return statusData;
+    } catch (err) {
+      console.error("Failed to fetch access status:", err);
+      return null;
+    }
+  };
 
   // Check if user is logged in on mount
   useEffect(() => {
@@ -17,6 +29,9 @@ export const AuthProvider = ({ children }) => {
         try {
           const userData = await authAPI.getMe();
           setUser(userData);
+          // Fetch subscription details
+          const statusData = await subscriptionAPI.getStatus();
+          setAccessStatus(statusData);
         } catch (err) {
           console.error("Failed to restore session:", err);
           localStorage.removeItem('token');
@@ -36,6 +51,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
+      
+      // Load access status upon login
+      try {
+        const statusData = await subscriptionAPI.getStatus();
+        setAccessStatus(statusData);
+      } catch (subErr) {
+        console.error("Failed to fetch access status after login:", subErr);
+      }
+
       return data.user;
     } catch (err) {
       const errMsg = err.response?.data?.detail || "Invalid credentials. Please check your inputs.";
@@ -66,16 +90,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setAccessStatus(null);
   };
 
   const value = {
     user,
+    accessStatus,
     loading,
     error,
     isAuthenticated: !!user,
     login,
     register,
     logout,
+    refreshAccessStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -88,3 +115,4 @@ export const useAuth = () => {
   }
   return context;
 };
+

@@ -15,6 +15,7 @@ import MarketingStrategy from './pages/MarketingStrategy';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
+import Subscription from './pages/Subscription';
 
 // Wraps DashboardLayout around child routes via Outlet
 const DashboardWrapper = () => (
@@ -50,8 +51,10 @@ function App() {
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/subscription" element={<Subscription />} />
             </Route>
           </Route>
+
         </Routes>
       </AuthProvider>
     </Router>

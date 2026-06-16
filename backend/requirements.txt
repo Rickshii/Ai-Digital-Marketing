@@ -13,3 +13,4 @@ cors
 alembic
 email-validator
 psycopg2-binary
+razorpay

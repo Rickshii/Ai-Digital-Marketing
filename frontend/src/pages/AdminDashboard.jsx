@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2
+  Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2,
+  Eye, Edit2, X, Check, CreditCard, Calendar, Filter, Building, User, Info, Key
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 
@@ -14,29 +15,45 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
-    Promise.all([
-      adminAPI.getStats(),
-      adminAPI.getUsers(),
-      adminAPI.getReports()
-    ]).then(([statsData, usersData, reportsData]) => {
-      if (isMounted) {
-        setStats(statsData);
-        setUsers(usersData);
-        setReports(reportsData);
-        setLoading(false);
-      }
-    }).catch(err => {
+  // Filters state
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'admin', 'user'
+  const [planFilter, setPlanFilter] = useState('all'); // 'all', 'trial', 'active', 'expired'
+
+  // Edit/Preview Modals state
+  const [previewUser, setPreviewUser] = useState(null);
+  const [editUser, setEditUser] = useState(null);
+
+  // Edit form state
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    email: '',
+    role: 'user',
+    password: ''
+  });
+  const [editFormLoading, setEditFormLoading] = useState(false);
+  const [editFormError, setEditFormError] = useState('');
+
+  const fetchAdminData = async () => {
+    try {
+      setLoading(true);
+      const [statsData, usersData, reportsData] = await Promise.all([
+        adminAPI.getStats(),
+        adminAPI.getUsers(),
+        adminAPI.getReports()
+      ]);
+      setStats(statsData);
+      setUsers(usersData);
+      setReports(reportsData);
+      setLoading(false);
+    } catch (err) {
       console.error('Failed to load admin data:', err);
-      if (isMounted) {
-        setErrorMsg('Unauthorized access or connection to admin endpoints failed.');
-        setLoading(false);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
+      setErrorMsg('Unauthorized access or connection to admin endpoints failed.');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminData();
   }, []);
 
   const handleDeleteUser = async (userId) => {
@@ -44,6 +61,7 @@ const AdminDashboard = () => {
       try {
         await adminAPI.deleteUser(userId);
         setUsers(prev => prev.filter(u => u.id !== userId));
+        if (previewUser && previewUser.id === userId) setPreviewUser(null);
         // Refresh stats
         const statsData = await adminAPI.getStats();
         setStats(statsData);
@@ -65,6 +83,56 @@ const AdminDashboard = () => {
         console.error('Failed to delete report:', err);
         alert('Failed to delete report.');
       }
+    }
+  };
+
+  const handleOpenEdit = (user) => {
+    setEditUser(user);
+    setEditForm({
+      full_name: user.full_name,
+      email: user.email,
+      role: user.role,
+      password: ''
+    });
+    setEditFormError('');
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    setEditFormLoading(true);
+    setEditFormError('');
+    try {
+      const updatePayload = {
+        full_name: editForm.full_name,
+        email: editForm.email,
+        role: editForm.role
+      };
+      if (editForm.password.trim().length > 0) {
+        updatePayload.password = editForm.password;
+      }
+      
+      await adminAPI.updateUser(editUser.id, updatePayload);
+      
+      // Update local state
+      setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...updatePayload } : u));
+      if (previewUser && previewUser.id === editUser.id) {
+        setPreviewUser(prev => ({ ...prev, ...updatePayload }));
+      }
+      setEditUser(null);
+      alert('User details updated successfully.');
+    } catch (err) {
+      setEditFormError(err.response?.data?.detail || 'Failed to update user account details.');
+    } finally {
+      setEditFormLoading(false);
+    }
+  };
+
+  const handleOpenPreview = async (userId) => {
+    try {
+      const detailedUser = await adminAPI.previewUser(userId);
+      setPreviewUser(detailedUser);
+    } catch (err) {
+      alert('Failed to retrieve detailed user profile: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -90,10 +158,29 @@ const AdminDashboard = () => {
     );
   }
 
-  const filteredUsers = users.filter(u =>
-    u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter Logic
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+
+    // Plan evaluation
+    let matchesPlan = true;
+    const hasAccess = u.access?.has_access;
+    const trialActive = u.access?.trial_active;
+    const subActive = u.access?.subscription_active;
+
+    if (planFilter === 'trial') {
+      matchesPlan = hasAccess && trialActive && !subActive;
+    } else if (planFilter === 'active') {
+      matchesPlan = hasAccess && subActive;
+    } else if (planFilter === 'expired') {
+      matchesPlan = !hasAccess;
+    }
+
+    return matchesSearch && matchesRole && matchesPlan;
+  });
 
   const filteredReports = reports.filter(r =>
     r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,7 +197,7 @@ const AdminDashboard = () => {
         </div>
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800">System Admin Control</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Manage user accounts, monitor system audits, and oversee generated reports</p>
+          <p className="text-slate-500 text-sm mt-0.5">Manage user accounts, check subscription statuses, and monitor generated reports</p>
         </div>
       </div>
 
@@ -137,7 +224,7 @@ const AdminDashboard = () => {
 
       {/* Tabs Menu */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 px-5 pt-4 pb-4 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 px-5 pt-4 pb-4 gap-4 bg-slate-50/20">
           <div className="flex gap-1 border border-slate-100 p-1 rounded-xl bg-slate-50 self-start">
             {[
               { id: 'users', label: 'User Management', count: users.length },
@@ -145,21 +232,58 @@ const AdminDashboard = () => {
               { id: 'analytics', label: 'System Analytics', count: null }
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
-                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === tab.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>
+                className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === tab.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
                 {tab.label} {tab.count !== null && <span className="ml-1 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{tab.count}</span>}
               </button>
             ))}
           </div>
 
-          {activeTab !== 'analytics' && (
-            <div className="relative max-w-xs w-full sm:self-end">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          {activeTab === 'users' && (
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Role filter */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+                <Filter className="h-3.5 w-3.5 text-slate-400" />
+                <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="bg-transparent outline-none pr-1">
+                  <option value="all">All Roles</option>
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              {/* Plan filter */}
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+                <CreditCard className="h-3.5 w-3.5 text-slate-400" />
+                <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)} className="bg-transparent outline-none pr-1">
+                  <option value="all">All Plans</option>
+                  <option value="trial">Free Trial</option>
+                  <option value="active">Paid Subscription</option>
+                  <option value="expired">Expired Access</option>
+                </select>
+              </div>
+
+              {/* Search */}
+              <div className="relative max-w-xs w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-white"
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div className="relative max-w-xs w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder={activeTab === 'users' ? "Search users by name or email..." : "Search reports by title, ID or user..."}
+                placeholder="Search reports..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-slate-50/50"
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all bg-white"
               />
             </div>
           )}
@@ -175,6 +299,7 @@ const AdminDashboard = () => {
                     <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                       <th className="pb-3 font-semibold">User Details</th>
                       <th className="pb-3 font-semibold">System Role</th>
+                      <th className="pb-3 font-semibold">Subscription Status</th>
                       <th className="pb-3 font-semibold">Joined Date</th>
                       <th className="pb-3 text-center font-semibold">Audits</th>
                       <th className="pb-3 text-center font-semibold">Reports</th>
@@ -184,35 +309,86 @@ const AdminDashboard = () => {
                   <tbody className="divide-y divide-slate-50 text-slate-600 font-medium">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan="6" className="text-center py-8 text-slate-400">No users found matching search terms.</td>
+                        <td colSpan="7" className="text-center py-8 text-slate-400">No users found matching search & filter terms.</td>
                       </tr>
                     ) : (
-                      filteredUsers.map((user) => (
-                        <tr key={user.id} className="hover:bg-slate-50/50">
-                          <td className="py-3.5">
-                            <div>
-                              <p className="font-bold text-slate-800">{user.full_name}</p>
-                              <p className="text-[11px] text-slate-400">{user.email}</p>
-                            </div>
-                          </td>
-                          <td className="py-3.5">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${user.role === 'admin' ? 'bg-violet-50 text-violet-700 border-violet-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                              {user.role}
+                      filteredUsers.map((user) => {
+                        const hasAccess = user.access?.has_access;
+                        const trialActive = user.access?.trial_active;
+                        const subActive = user.access?.subscription_active;
+                        const planName = user.access?.subscription_plan;
+                        const daysLeft = user.access?.trial_days_left;
+
+                        let statusBadge = (
+                          <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 px-2 py-0.5 text-[10px] font-bold border border-red-100">
+                            Expired
+                          </span>
+                        );
+                        if (user.role === 'admin') {
+                          statusBadge = (
+                            <span className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[10px] font-bold border border-indigo-100">
+                              Unlimited Admin
                             </span>
-                          </td>
-                          <td className="py-3.5 text-slate-500">{new Date(user.created_at).toLocaleDateString()}</td>
-                          <td className="py-3.5 text-center font-bold text-slate-700">{user.audits_count || 0}</td>
-                          <td className="py-3.5 text-center font-bold text-slate-700">{user.reports_count || 0}</td>
-                          <td className="py-3.5 text-right">
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="rounded-xl p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                          );
+                        } else if (hasAccess && subActive) {
+                          statusBadge = (
+                            <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-2 py-0.5 text-[10px] font-bold border border-emerald-100">
+                              {planName || 'Paid Active'}
+                            </span>
+                          );
+                        } else if (hasAccess && trialActive) {
+                          statusBadge = (
+                            <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-bold border border-amber-100 animate-pulse">
+                              Trial: {daysLeft} Days left
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <tr key={user.id} className="hover:bg-slate-50/50">
+                            <td className="py-3.5">
+                              <div>
+                                <p className="font-bold text-slate-800">{user.full_name}</p>
+                                <p className="text-[11px] text-slate-400">{user.email}</p>
+                              </div>
+                            </td>
+                            <td className="py-3.5">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${user.role === 'admin' ? 'bg-violet-50 text-violet-700 border-violet-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                {user.role}
+                              </span>
+                            </td>
+                            <td className="py-3.5">{statusBadge}</td>
+                            <td className="py-3.5 text-slate-500">{new Date(user.created_at).toLocaleDateString()}</td>
+                            <td className="py-3.5 text-center font-bold text-slate-700">{user.audits_count || 0}</td>
+                            <td className="py-3.5 text-center font-bold text-slate-700">{user.reports_count || 0}</td>
+                            <td className="py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleOpenPreview(user.id)}
+                                  title="Preview User Data"
+                                  className="rounded-xl p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleOpenEdit(user)}
+                                  title="Edit User Credentials"
+                                  className="rounded-xl p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  title="Delete User"
+                                  className="rounded-xl p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
@@ -309,6 +485,273 @@ const AdminDashboard = () => {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* ──────────── PREVIEW USER MODAL ──────────── */}
+      <AnimatePresence>
+        {previewUser && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-3xl overflow-hidden max-h-[85vh] flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-white">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-violet-100 text-violet-700 rounded-xl flex items-center justify-center">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 text-base">{previewUser.full_name}</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">{previewUser.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPreviewUser(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+                {/* Status and Join Date Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                  <div>
+                    <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Access Status</span>
+                    <p className="font-bold text-slate-800 mt-1">
+                      {previewUser.role === 'admin' 
+                        ? 'Unlimited Admin' 
+                        : previewUser.access?.has_access 
+                          ? (previewUser.access?.subscription_active ? 'Paid Subscription' : 'Trial Active')
+                          : 'Expired'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Plan Name</span>
+                    <p className="font-bold text-slate-800 mt-1">
+                      {previewUser.access?.subscription_plan || (previewUser.access?.trial_active ? 'Free Trial' : 'None')}
+                    </p>
+                  </div>
+                  {previewUser.access?.trial_active && !previewUser.access?.subscription_active && (
+                    <div>
+                      <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Trial Days Left</span>
+                      <p className="font-bold text-amber-600 mt-1">{previewUser.access?.trial_days_left} Days</p>
+                    </div>
+                  )}
+                  {previewUser.access?.subscription_expiry && (
+                    <div>
+                      <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Expiry Date</span>
+                      <p className="font-bold text-slate-800 mt-1">
+                        {new Date(previewUser.access.subscription_expiry).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Joined Date</span>
+                    <p className="font-bold text-slate-800 mt-1">
+                      {new Date(previewUser.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Business Profiles Section */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                    <Building className="h-4 w-4 text-indigo-500" /> Business Profiles ({previewUser.business_profiles?.length || 0})
+                  </h4>
+                  {previewUser.business_profiles?.length === 0 ? (
+                    <p className="text-slate-400 bg-slate-50/50 p-4 rounded-2xl text-center">No business profiles created yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {previewUser.business_profiles.map((profile, idx) => (
+                        <div key={idx} className="border border-slate-100 rounded-2xl p-4 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 text-xs">{profile.business_name}</span>
+                            <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-100">{profile.business_category}</span>
+                          </div>
+                          <p className="text-slate-400 leading-relaxed">{profile.description}</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 border-t border-slate-50 pt-2.5 text-[11px] text-slate-500">
+                            <div>
+                              <span className="font-semibold text-slate-400">Website:</span>{' '}
+                              <a href={profile.website_url} target="_blank" rel="noreferrer" className="text-violet-600 hover:underline">{profile.website_url}</a>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-400">Industry:</span> {profile.industry_type}
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-400">Location:</span> {profile.city}, {profile.country}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Payment History Section */}
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                    <CreditCard className="h-4 w-4 text-emerald-500" /> Payment History ({previewUser.payments?.length || 0})
+                  </h4>
+                  {previewUser.payments?.length === 0 ? (
+                    <p className="text-slate-400 bg-slate-50/50 p-4 rounded-2xl text-center">No subscription payments logged.</p>
+                  ) : (
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
+                            <th className="p-3">Order ID</th>
+                            <th className="p-3">Payment ID</th>
+                            <th className="p-3">Amount</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 text-slate-600 font-semibold">
+                          {previewUser.payments.map((pay) => (
+                            <tr key={pay.id} className="hover:bg-slate-50/30">
+                              <td className="p-3 font-mono text-slate-700">{pay.razorpay_order_id}</td>
+                              <td className="p-3 font-mono text-slate-700">{pay.razorpay_payment_id || 'N/A'}</td>
+                              <td className="p-3 font-bold text-slate-800">₹{pay.amount}</td>
+                              <td className="p-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold border ${pay.status === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
+                                  {pay.status}
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-400">{new Date(pay.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex justify-end gap-2.5">
+                <button
+                  onClick={() => {
+                    handleOpenEdit(previewUser);
+                  }}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
+                >
+                  Edit Account Credentials
+                </button>
+                <button
+                  onClick={() => setPreviewUser(null)}
+                  className="px-5 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 font-bold shadow-md shadow-violet-500/10"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ──────────── EDIT USER MODAL ──────────── */}
+      <AnimatePresence>
+        {editUser && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden flex flex-col"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-1.5">
+                  <Edit2 className="h-5 w-5 text-indigo-600" /> Edit User Account
+                </h3>
+                <button
+                  onClick={() => setEditUser(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateUser} className="p-6 space-y-4 text-xs font-semibold">
+                {editFormError && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{editFormError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 uppercase tracking-wider text-[10px]">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.full_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-medium text-slate-700"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 uppercase tracking-wider text-[10px]">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-medium text-slate-700"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 uppercase tracking-wider text-[10px]">System Access Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-medium text-slate-700 bg-white"
+                  >
+                    <option value="user">User (Subscription Gated)</option>
+                    <option value="admin">Administrator (Unlimited Access)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5 pt-1.5 border-t border-slate-50">
+                  <label className="text-slate-400 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <Key className="h-3 w-3 text-slate-400" /> New Password (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Leave blank to keep current"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-medium text-slate-700"
+                  />
+                  <p className="text-[10px] text-slate-400 font-medium leading-normal mt-1">Must be at least 6 characters if you want to reset it.</p>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditUser(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editFormLoading}
+                    className="px-5 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 font-bold shadow-md shadow-violet-500/10 disabled:opacity-50"
+                  >
+                    {editFormLoading ? 'Saving Changes...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

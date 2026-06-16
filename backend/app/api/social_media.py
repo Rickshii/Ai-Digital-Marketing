@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_current_active_user
 from app.models.user import User as UserModel
 from app.schemas.social_media import SocialMediaAnalysisRequest, SocialMediaAnalysisResponse
 from app.services.social_media_service import SocialMediaService
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/social", tags=["Social Media Analysis"])
 def run_social_analysis(
     analysis_in: SocialMediaAnalysisRequest,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_active_user),
 ):
     try:
         return SocialMediaService.run_analysis(
@@ -40,7 +40,7 @@ def run_social_analysis(
 )
 def get_social_analysis_history(
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_active_user),
 ):
     return SocialMediaService.get_user_analyses(db=db, user_id=current_user.id)
 
@@ -53,11 +53,12 @@ def get_social_analysis_history(
 def get_social_analysis_report(
     analysis_id: int,
     db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_active_user),
 ):
     analysis = SocialMediaService.get_analysis(
         db=db, analysis_id=analysis_id, user_id=current_user.id
     )
+
     if not analysis:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

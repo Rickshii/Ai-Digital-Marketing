@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.models.user import User as UserModel
 from app.schemas.user import UserCreate, User as UserSchema, Token, TokenData
+from app.services.access_service import AccessService
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -48,6 +49,19 @@ def get_current_admin_user(current_user: UserModel = Depends(get_current_user)) 
         )
     return current_user
 
+def get_current_active_user(
+    current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> UserModel:
+    status_dict = AccessService.get_access_status(db, current_user.id)
+    if not status_dict["has_access"]:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Your free trial has expired or you do not have an active subscription. Please upgrade to continue."
+        )
+    return current_user
+
+
 @router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     # Check if user already exists
@@ -58,18 +72,23 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="The user with this email already exists in the system.",
         )
     
-    # Hash password and save
+    # Hash password and save (enforce role='user' to prevent privilege escalation)
     hashed_pwd = get_password_hash(user_in.password)
     db_user = UserModel(
         email=user_in.email,
         hashed_password=hashed_pwd,
         full_name=user_in.full_name,
-        role=user_in.role or "user"
+        role="user"
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    
+    # Automatically start 3-day free trial
+    AccessService.start_trial(db, db_user.id)
+    
     return db_user
+
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

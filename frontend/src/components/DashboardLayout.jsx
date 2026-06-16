@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Briefcase, Globe, Search, Share2,
   Megaphone, FileText, Settings, LogOut, Menu, X,
-  Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield
+  Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield, AlertCircle
 } from 'lucide-react';
+
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, color: 'from-violet-500 to-purple-600' },
@@ -28,7 +29,8 @@ const bottomNavItems = [
 ];
 
 const DashboardLayout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, accessStatus } = useAuth();
+
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -87,6 +89,20 @@ const DashboardLayout = ({ children }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (accessStatus && !accessStatus.has_access) {
+      const premiumPaths = ['/audit', '/seo', '/social', '/strategy', '/reports', '/business'];
+      const currentPath = location.pathname;
+      const isPremiumPath = premiumPaths.some(p => currentPath === p || currentPath.startsWith(p + '/'));
+      
+      // Let dashboard render, but redirect if they try to access premium features
+      if (isPremiumPath && currentPath !== '/subscription') {
+        navigate('/subscription');
+      }
+    }
+  }, [accessStatus, location.pathname, navigate]);
+
 
   const initials = user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
@@ -156,27 +172,75 @@ const DashboardLayout = ({ children }) => {
           })}
         </nav>
 
-        {/* Upgrade Card */}
-        <div className="p-4 border-t border-slate-100">
-          <div className="rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 p-4 text-white shadow-lg shadow-violet-500/20">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-xs font-semibold">Pro Plan Active</span>
+        {/* Upgrade / Subscription Status Card */}
+        <div className="p-4 border-t border-slate-100 space-y-3">
+          {accessStatus && (
+            <div className={`rounded-xl p-4 text-white shadow-md ${
+              accessStatus.has_access 
+                ? 'bg-gradient-to-br from-violet-500 to-indigo-600' 
+                : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-red-500/10'
+            }`}>
+              {isAdmin ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Administrator</span>
+                  </div>
+                  <p className="text-[11px] opacity-90">Unlimited platform analytics & system controls enabled.</p>
+                </>
+              ) : accessStatus.subscription_active ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Zap className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">{accessStatus.subscription_plan} Plan</span>
+                  </div>
+                  <p className="text-[11px] opacity-90 mb-2">Subscription Active</p>
+                  <p className="text-[10px] opacity-75">
+                    Expires: {accessStatus.subscription_expiry ? new Date(accessStatus.subscription_expiry).toLocaleDateString() : 'N/A'}
+                  </p>
+                </>
+              ) : accessStatus.trial_active ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Free Trial</span>
+                  </div>
+                  <p className="text-xs opacity-90 mb-3">{accessStatus.trial_days_left} Days Remaining</p>
+                  <div className="w-full bg-white/20 rounded-full h-1.5 mb-1.5">
+                    <div 
+                      className="bg-white rounded-full h-1.5 transition-all duration-300"
+                      style={{ width: `${Math.min(100, (accessStatus.trial_days_left / 3) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[9px] opacity-75">Calculated from join date</p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <AlertCircle className="h-4 w-4 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Plan Expired</span>
+                  </div>
+                  <p className="text-[11px] opacity-90 mb-3">Your 3-day trial has ended.</p>
+                  <Link 
+                    to="/subscription" 
+                    className="block text-center w-full bg-white text-red-600 font-bold py-2 rounded-xl text-xs hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    Upgrade Account
+                  </Link>
+                </>
+              )}
             </div>
-            <p className="text-xs opacity-80 mb-3">Unlimited audits & AI strategy generation</p>
-            <div className="w-full bg-white/20 rounded-full h-1.5 mb-1">
-              <div className="bg-white rounded-full h-1.5 w-3/4"></div>
-            </div>
-            <p className="text-[10px] opacity-70">75% of monthly quota used</p>
-          </div>
+          )}
+
           <button
             onClick={handleLogout}
-            className="mt-3 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-400 hover:bg-red-50 hover:text-red-500 transition-all"
           >
             <LogOut className="h-4 w-4" />
             Sign out
           </button>
         </div>
+
       </aside>
 
       {/* ──────────── MAIN AREA ──────────── */}
@@ -315,6 +379,28 @@ const DashboardLayout = ({ children }) => {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto px-4 py-6 md:px-6 md:py-8 pb-24 lg:pb-8">
+          {accessStatus && !accessStatus.has_access && location.pathname !== '/subscription' && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6 flex items-center justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-red-800 text-xs sm:text-sm">Trial Subscription Expired</p>
+                  <p className="text-red-700 text-[11px] sm:text-xs mt-0.5">Please upgrade your subscription to enable Website SEO audits, strategy generators, and report compilers.</p>
+                </div>
+              </div>
+              <Link 
+                to="/subscription" 
+                className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm shrink-0"
+              >
+                Upgrade Plan
+              </Link>
+            </motion.div>
+          )}
+
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 10 }}
@@ -324,6 +410,7 @@ const DashboardLayout = ({ children }) => {
             {children}
           </motion.div>
         </main>
+
       </div>
 
       {/* ──────────── MOBILE SIDEBAR DRAWER ──────────── */}
