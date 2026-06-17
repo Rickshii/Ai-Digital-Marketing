@@ -78,27 +78,6 @@ const Subscription = () => {
     try {
       const orderData = await subscriptionAPI.createOrder(plan.plan_name);
 
-      if (orderData.is_mock) {
-        const confirmed = window.confirm(
-          `[DEV MODE] Simulating payment for "${plan.plan_name}" plan (\u20b9${plan.price} / ${plan.duration_days} days).\n\nClick OK to activate the subscription locally.`
-        );
-        if (!confirmed) { setProcessingPlan(null); return; }
-
-        const res = await subscriptionAPI.verifyPayment({
-          plan_name: plan.plan_name,
-          amount: plan.price,
-          duration_days: plan.duration_days,
-          razorpay_order_id: orderData.order_id,
-          razorpay_payment_id: `mock_pay_${Math.random().toString(36).substr(2, 10)}`,
-          razorpay_signature: 'mock_success_signature',
-        });
-        if (res.success) {
-          await refreshAccessStatus();
-          navigate('/dashboard');
-        }
-        return;
-      }
-
       // Live Razorpay flow
       const loaded = await loadRazorpayScript();
       if (!loaded) {

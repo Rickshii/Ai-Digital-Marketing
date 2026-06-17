@@ -96,37 +96,35 @@ def create_order(
     razorpay_key_id = os.getenv("RAZORPAY_KEY_ID", "")
     razorpay_key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
 
-    if razorpay_key_id and razorpay_key_secret and razorpay_key_id != "dummy_key":
-        try:
-            import razorpay
-            client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
-            order_data = {
-                "amount": amount_in_paise,
-                "currency": "INR",
-                "receipt": f"rcpt_{current_user.id}_{uuid.uuid4().hex[:8]}",
-                "notes": {"user_id": current_user.id, "plan_name": body.plan_name},
-            }
-            order = client.order.create(data=order_data)
-            return {
-                "success": True,
-                "order_id": order["id"],
-                "amount": plan["price"],
-                "currency": "INR",
-                "key_id": razorpay_key_id,
-                "is_mock": False,
-            }
-        except Exception:
-            pass  # Fall through to mock
+    if not razorpay_key_id or not razorpay_key_secret or razorpay_key_id == "dummy_key":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Razorpay credentials are not configured on the server."
+        )
 
-    # Mock payment fallback
-    return {
-        "success": True,
-        "order_id": f"mock_order_{uuid.uuid4().hex[:12]}",
-        "amount": plan["price"],
-        "currency": "INR",
-        "key_id": "dummy_key",
-        "is_mock": True,
-    }
+    try:
+        import razorpay
+        client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
+        order_data = {
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "receipt": f"rcpt_{current_user.id}_{uuid.uuid4().hex[:8]}",
+            "notes": {"user_id": current_user.id, "plan_name": body.plan_name},
+        }
+        order = client.order.create(data=order_data)
+        return {
+            "success": True,
+            "order_id": order["id"],
+            "amount": plan["price"],
+            "currency": "INR",
+            "key_id": razorpay_key_id,
+            "is_mock": False,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create Razorpay order: {str(e)}"
+        )
 
 
 @router.post("/verify-payment")
@@ -138,7 +136,6 @@ def verify_payment(
     """Verifies the Razorpay payment signature and activates the subscription.
     
     The plan is ONLY activated after Razorpay's HMAC-SHA256 signature is validated.
-    In mock/dev mode (dummy_key), the signature check is skipped safely.
     """
     # Resolve the plan from DB to get the canonical duration_days
     plans = _get_plans_map(db)

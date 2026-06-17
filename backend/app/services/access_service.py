@@ -117,9 +117,8 @@ class AccessService:
     @staticmethod
     def verify_razorpay_signature(order_id: str, payment_id: str, signature: str, secret: str) -> bool:
         """Verifies Razorpay payment signature using HMAC-SHA256."""
-        if not secret or secret in ("dummy_secret", "") or order_id.startswith("mock_"):
-            # Development / mock mode — skip signature verification
-            return True
+        if not secret:
+            return False
         try:
             msg = f"{order_id}|{payment_id}"
             generated = hmac.new(
@@ -141,7 +140,8 @@ class AccessService:
         razorpay_payment_id: str,
         razorpay_signature: str,
         secret: str = "",
-        duration_days: int = None
+        duration_days: int = None,
+        skip_signature_verification: bool = False
     ) -> dict:
         """Verifies payment signature, records the payment, and activates/extends subscription.
         
@@ -149,10 +149,11 @@ class AccessService:
         No plan is activated if verification fails.
         """
         # Step 1: Verify Razorpay signature — gate everything behind this
-        is_valid = AccessService.verify_razorpay_signature(
-            razorpay_order_id, razorpay_payment_id, razorpay_signature, secret
-        )
-        if not is_valid:
+        if not skip_signature_verification:
+            is_valid = AccessService.verify_razorpay_signature(
+                razorpay_order_id, razorpay_payment_id, razorpay_signature, secret
+            )
+            if not is_valid:
             # Record failed attempt for audit trail
             failed_payment = Payment(
                 user_id=user_id,

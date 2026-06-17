@@ -501,8 +501,8 @@ def approve_payment(
                 razorpay_order_id=payment.razorpay_order_id,
                 razorpay_payment_id="qr_manual_" + str(payment_id),
                 razorpay_signature="qr_manual_approve",
-                secret="dummy_secret",
                 duration_days=plan.duration_days,
+                skip_signature_verification=True
             )
             
     db.commit()
