@@ -1190,6 +1190,21 @@ export const subscriptionAPI = {
     );
   },
 
+  submitQRPayment: async (formData) => {
+    return executeWithFallback(
+      async () => {
+        // formData contains plan_name, razorpay_order_id, screenshot
+        const response = await api.post('/subscription/qr-payment', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+      },
+      () => {
+        return { success: true, detail: "QR Payment submitted for verification (Mock)." };
+      }
+    );
+  },
+
   getPlans: async () => {
     return executeWithFallback(
       async () => {
@@ -1467,6 +1482,50 @@ export const adminAPI = {
         setLocalData('mock_plans', plans.filter(p => p.id !== id && p.id !== parseInt(id)));
         return { detail: 'Plan deleted (local fallback).' };
       }
+    );
+  },
+
+  uploadPlatformQR: async (formData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/admin/platform-qr', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+      },
+      () => {
+        return { success: true, url: "/uploads/platform_qr.png" };
+      }
+    );
+  },
+
+  getPendingPayments: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/admin/payments/pending');
+        return response.data;
+      },
+      () => []
+    );
+  },
+
+  approvePayment: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post(`/admin/payments/${id}/approve`);
+        return response.data;
+      },
+      () => ({ success: true, detail: 'Payment approved (mock)' })
+    );
+  },
+
+  rejectPayment: async (id) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post(`/admin/payments/${id}/reject`);
+        return response.data;
+      },
+      () => ({ success: true, detail: 'Payment rejected (mock)' })
     );
   }
 };

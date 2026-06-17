@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
@@ -173,4 +173,45 @@ def verify_payment(
         "expiry_date": result.get("expiry_date"),
         "duration_days": result.get("duration_days"),
     }
+
+@router.post("/qr-payment")
+def submit_qr_payment(
+    plan_name: str = Form(...),
+    razorpay_order_id: str = Form(...),
+    screenshot: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Submits a QR payment screenshot for manual verification."""
+    plans = _get_plans_map(db)
+    if plan_name not in plans:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+
+    plan = plans[plan_name]
+    amount = plan["price"]
+
+    import shutil
+    import uuid
+    os.makedirs("uploads", exist_ok=True)
+    ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
+    filename = f"qr_{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join("uploads", filename)
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(screenshot.file, buffer)
+
+    from app.models.subscription import Payment
+    payment = Payment(
+        user_id=current_user.id,
+        amount=amount,
+        currency="INR",
+        razorpay_order_id=razorpay_order_id,
+        payment_method="qr",
+        payment_proof=f"/uploads/{filename}",
+        plan_name=plan_name,
+        status="pending_verification"
+    )
+    db.add(payment)
+    db.commit()
+
+    return {"success": True, "detail": "Payment submitted for verification."}
 

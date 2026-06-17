@@ -38,6 +38,58 @@ const AdminDashboard = () => {
   const [planSaving, setPlanSaving] = useState(false);
   const [planError, setPlanError] = useState('');
 
+  // Payments state
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [platformQRFile, setPlatformQRFile] = useState(null);
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace('/api', '');
+
+  const fetchPendingPayments = async () => {
+    setPaymentsLoading(true);
+    try {
+      const data = await adminAPI.getPendingPayments();
+      setPendingPayments(data);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
+  const handleApprovePayment = async (id) => {
+    if(!window.confirm("Approve and activate this plan?")) return;
+    try {
+      await adminAPI.approvePayment(id);
+      setPendingPayments(prev => prev.filter(p => p.id !== id));
+    } catch(err) {
+      alert(err.response?.data?.detail || "Failed to approve payment");
+    }
+  };
+
+  const handleRejectPayment = async (id) => {
+    if(!window.confirm("Reject this payment?")) return;
+    try {
+      await adminAPI.rejectPayment(id);
+      setPendingPayments(prev => prev.filter(p => p.id !== id));
+    } catch(err) {
+      alert(err.response?.data?.detail || "Failed to reject payment");
+    }
+  };
+
+  const handleUploadQR = async (e) => {
+    e.preventDefault();
+    if(!platformQRFile) return;
+    const fd = new FormData();
+    fd.append("file", platformQRFile);
+    try {
+      await adminAPI.uploadPlatformQR(fd);
+      alert("Platform QR Uploaded Successfully");
+      setPlatformQRFile(null);
+    } catch(err) {
+      alert("Failed to upload QR");
+    }
+  };
+
   const fetchPlans = async () => {
     setPlansLoading(true);
     try {
@@ -130,6 +182,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'plans') fetchPlans();
+    if (activeTab === 'payments') fetchPendingPayments();
   }, [activeTab]);
 
   const handleDeleteUser = async (userId) => {
@@ -306,6 +359,7 @@ const AdminDashboard = () => {
               { id: 'users',     label: 'User Management',  count: users.length },
               { id: 'reports',   label: 'Report Management', count: reports.length },
               { id: 'plans',     label: 'Plan Pricing',      count: plans.length || null },
+              { id: 'payments',  label: 'QR Payments',       count: pendingPayments.length || null },
               { id: 'analytics', label: 'System Analytics',  count: null },
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
@@ -670,6 +724,86 @@ const AdminDashboard = () => {
                 <p className="text-[10px] text-slate-400 text-center pt-2">
                   Changes take effect immediately on the public Subscription page. Existing active subscriptions are not affected.
                 </p>
+              </motion.div>
+            )}
+
+            {activeTab === 'payments' && (
+              <motion.div key="payments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
+                  <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-4"><CreditCard className="h-5 w-5 text-indigo-500" /> Platform QR Management</h3>
+                  <form onSubmit={handleUploadQR} className="flex items-end gap-4 max-w-md">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload New QR Code</label>
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={e => setPlatformQRFile(e.target.files[0])}
+                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                      />
+                    </div>
+                    <button type="submit" disabled={!platformQRFile} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                      Save QR
+                    </button>
+                  </form>
+                  <p className="text-[10px] text-slate-400 mt-3">Current QR is visible at <a href={`${API_BASE}/uploads/platform_qr.png`} target="_blank" className="text-indigo-500 underline">/uploads/platform_qr.png</a></p>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-extrabold text-slate-800 flex items-center gap-2 text-lg"><Clock className="h-5 w-5 text-amber-500" /> Pending QR Payments ({pendingPayments.length})</h3>
+                  
+                  {paymentsLoading ? (
+                    <div className="py-10 text-center text-slate-500 text-sm animate-pulse">Loading payments...</div>
+                  ) : pendingPayments.length === 0 ? (
+                    <div className="py-10 text-center text-slate-400 text-sm bg-slate-50 rounded-2xl border border-slate-100">No pending payments.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-y border-slate-100 text-slate-500 font-bold uppercase text-[10px]">
+                            <th className="p-4 rounded-tl-2xl">Payment ID</th>
+                            <th className="p-4">User Details</th>
+                            <th className="p-4">Plan Name</th>
+                            <th className="p-4">Amount</th>
+                            <th className="p-4">Transaction / UTR</th>
+                            <th className="p-4">Proof</th>
+                            <th className="p-4 rounded-tr-2xl text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 text-slate-600 font-medium">
+                          {pendingPayments.map(pay => (
+                            <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-4 text-slate-500 font-mono">#{pay.id}</td>
+                              <td className="p-4">
+                                <span className="block font-bold text-slate-800">{pay.user?.full_name}</span>
+                                <span className="text-[10px] text-slate-400">{pay.user?.email}</span>
+                              </td>
+                              <td className="p-4 font-bold text-indigo-600">{pay.plan_name || 'N/A'}</td>
+                              <td className="p-4 font-black text-slate-800">₹{pay.amount}</td>
+                              <td className="p-4 font-mono text-slate-500">{pay.razorpay_order_id}</td>
+                              <td className="p-4">
+                                {pay.payment_proof ? (
+                                  <a href={`${API_BASE}${pay.payment_proof}`} target="_blank" className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-md font-bold text-[10px] w-fit">
+                                    <Eye className="h-3 w-3" /> View Image
+                                  </a>
+                                ) : 'None'}
+                              </td>
+                              <td className="p-4">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button onClick={() => handleApprovePayment(pay.id)} className="p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-100" title="Approve">
+                                    <Check className="h-4 w-4" />
+                                  </button>
+                                  <button onClick={() => handleRejectPayment(pay.id)} className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors border border-rose-100" title="Reject">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 

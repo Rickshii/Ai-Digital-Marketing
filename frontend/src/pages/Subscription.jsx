@@ -8,55 +8,6 @@ import {
   Loader2, Calendar, Clock
 } from 'lucide-react';
 
-// Plan feature lists keyed by plan_name
-const PLAN_FEATURES = {
-  "15 Days": [
-    "Full Website Audit & Crawling",
-    "SEO Factor Analysis",
-    "Marketing Strategy Recommendations",
-    "Social Media Integrations",
-    "Unlimited PDF Report Downloads",
-  ],
-  "1 Month": [
-    "Full Website Audit & Crawling",
-    "SEO Factor Analysis",
-    "Marketing Strategy Recommendations",
-    "Social Media Integrations",
-    "Unlimited PDF Report Downloads",
-    "Priority Customer Support",
-  ],
-  "3 Months": [
-    "Full Website Audit & Crawling",
-    "SEO Factor Analysis",
-    "Marketing Strategy Recommendations",
-    "Social Media Integrations",
-    "Unlimited PDF Report Downloads",
-    "Priority Customer Support",
-    "Advanced Competitor Mapping",
-  ],
-  "6 Months": [
-    "Full Website Audit & Crawling",
-    "SEO Factor Analysis",
-    "Marketing Strategy Recommendations",
-    "Social Media Integrations",
-    "Unlimited PDF Report Downloads",
-    "24/7 Dedicated Support",
-    "Advanced Competitor Mapping",
-    "Custom Logo Report Branding",
-  ],
-  "1 Year": [
-    "Full Website Audit & Crawling",
-    "SEO Factor Analysis",
-    "Marketing Strategy Recommendations",
-    "Social Media Integrations",
-    "Unlimited PDF Report Downloads",
-    "24/7 Dedicated Support",
-    "Advanced Competitor Mapping",
-    "Custom Logo Report Branding",
-    "SaaS Beta Features Early Access",
-  ],
-};
-
 const POPULAR_PLAN = "1 Month";
 
 const Subscription = () => {
@@ -66,6 +17,9 @@ const Subscription = () => {
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPlan, setProcessingPlan] = useState(null); // which plan is being processed
+  const [paymentModal, setPaymentModal] = useState({ show: false, plan: null, method: null });
+  const [qrFile, setQrFile] = useState(null);
+  const [transactionId, setTransactionId] = useState('');
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -92,7 +46,34 @@ const Subscription = () => {
       document.body.appendChild(script);
     });
 
-  const handleSubscribe = async (plan) => {
+  const openPaymentModal = (plan) => {
+    setPaymentModal({ show: true, plan, method: null });
+  };
+
+  const handleQRSubmit = async (e) => {
+    e.preventDefault();
+    if (!qrFile || !transactionId) return alert('Please upload screenshot and enter transaction ID');
+    
+    setProcessingPlan(paymentModal.plan.plan_name);
+    try {
+      const formData = new FormData();
+      formData.append('plan_name', paymentModal.plan.plan_name);
+      formData.append('razorpay_order_id', transactionId); // using this field for UTR
+      formData.append('screenshot', qrFile);
+
+      await subscriptionAPI.submitQRPayment(formData);
+      alert('Payment submitted for verification. Your plan will be activated once verified by admin.');
+      setPaymentModal({ show: false, plan: null, method: null });
+      setQrFile(null);
+      setTransactionId('');
+    } catch (err) {
+      alert('Failed to submit QR payment: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
+  const handleRazorpayFlow = async (plan) => {
     setProcessingPlan(plan.plan_name);
     try {
       const orderData = await subscriptionAPI.createOrder(plan.plan_name);
@@ -160,8 +141,11 @@ const Subscription = () => {
       alert('Could not create order: ' + (err.response?.data?.detail || 'Server error.'));
     } finally {
       setProcessingPlan(null);
+      setPaymentModal({ show: false, plan: null, method: null });
     }
   };
+
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace('/api', '');
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
@@ -267,7 +251,7 @@ const Subscription = () => {
               const isPopular = plan.plan_name === POPULAR_PLAN;
               const isActive = accessStatus?.subscription_active && accessStatus?.subscription_plan === plan.plan_name;
               const isProcessing = processingPlan === plan.plan_name;
-              const features = PLAN_FEATURES[plan.plan_name] || [
+              const features = [
                 "Full Platform Access",
                 "Website & SEO Auditing",
                 "Marketing Strategy Generator",
@@ -324,7 +308,7 @@ const Subscription = () => {
 
                   {/* CTA */}
                   <button
-                    onClick={() => handleSubscribe(plan)}
+                    onClick={() => openPaymentModal(plan)}
                     disabled={!!processingPlan || isActive}
                     className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all
                       ${isActive
@@ -368,7 +352,88 @@ const Subscription = () => {
         ))}
       </div>
 
-      {/* Note removed because trial status is now shown in the Status Card above */}
+      {/* Payment Modal */}
+      {paymentModal.show && paymentModal.plan && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-800">Checkout: {paymentModal.plan.plan_name} Plan</h3>
+              <button onClick={() => setPaymentModal({ show: false, plan: null, method: null })} className="text-slate-400 hover:text-slate-600">
+                &times;
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {!paymentModal.method ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-500 text-center mb-6">Choose your preferred payment method to pay <span className="font-bold text-slate-800">₹{paymentModal.plan.price}</span></p>
+                  <button
+                    onClick={() => setPaymentModal(prev => ({ ...prev, method: 'razorpay' }))}
+                    className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold transition-all border border-blue-200"
+                  >
+                    <CreditCard className="h-5 w-5" /> Pay via Razorpay
+                  </button>
+                  <button
+                    onClick={() => setPaymentModal(prev => ({ ...prev, method: 'qr' }))}
+                    className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold transition-all border border-indigo-200"
+                  >
+                    <Zap className="h-5 w-5" /> Pay via QR Code (UPI)
+                  </button>
+                </div>
+              ) : paymentModal.method === 'razorpay' ? (
+                <div className="text-center py-6">
+                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-4" />
+                  <p className="text-sm text-slate-600 font-medium">Initializing Razorpay Secure Checkout...</p>
+                  {setTimeout(() => handleRazorpayFlow(paymentModal.plan), 500) && ''}
+                </div>
+              ) : (
+                <form onSubmit={handleQRSubmit} className="space-y-5">
+                  <div className="text-center">
+                    <img src={`${API_BASE}/uploads/platform_qr.png`} alt="Scan to pay" className="w-48 h-48 mx-auto border-4 border-slate-50 rounded-xl shadow-sm mb-3" onError={(e) => { e.target.src = 'https://via.placeholder.com/200?text=QR+Code+Not+Set'; }} />
+                    <p className="text-sm font-bold text-slate-800">Scan to pay ₹{paymentModal.plan.price}</p>
+                    <p className="text-xs text-slate-500 mt-1">Please scan the QR code using any UPI app.</p>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Transaction ID / UTR</label>
+                    <input 
+                      required 
+                      type="text" 
+                      value={transactionId} 
+                      onChange={e => setTransactionId(e.target.value)}
+                      placeholder="e.g. 123456789012"
+                      className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 outline-none focus:border-indigo-500" 
+                    />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700">Payment Screenshot</label>
+                    <input 
+                      required 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setQrFile(e.target.files[0])}
+                      className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={!!processingPlan}
+                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                  >
+                    {processingPlan ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><Check className="h-4 w-4" /> Submit Payment</>}
+                  </button>
+                </form>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

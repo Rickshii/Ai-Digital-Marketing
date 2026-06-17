@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -47,6 +48,20 @@ def upgrade_db_schema():
                 db.execute(text(f"ALTER TABLE business_profiles ADD COLUMN {col_name} {col_type}"))
                 db.commit()
                 print(f"Added column {col_name} of type {col_type} to business_profiles.")
+
+        # Migrate payments
+        if 'payments' in inspector.get_table_names():
+            payment_cols = [col['name'] for col in inspector.get_columns('payments')]
+            if 'payment_method' not in payment_cols:
+                db.execute(text("ALTER TABLE payments ADD COLUMN payment_method VARCHAR(50) DEFAULT 'razorpay'"))
+                db.commit()
+            if 'payment_proof' not in payment_cols:
+                db.execute(text("ALTER TABLE payments ADD COLUMN payment_proof VARCHAR(500)"))
+                db.commit()
+            if 'plan_name' not in payment_cols:
+                db.execute(text("ALTER TABLE payments ADD COLUMN plan_name VARCHAR(100)"))
+                db.commit()
+
     except Exception as e:
         db.rollback()
         print(f"Error checking/migrating schema: {e}")
@@ -65,6 +80,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+import os
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # CORS configuration
 origins = [

@@ -40,7 +40,10 @@ class Payment(Base):
     razorpay_order_id = Column(String, unique=True, index=True, nullable=False)
     razorpay_payment_id = Column(String, unique=True, index=True, nullable=True)
     razorpay_signature = Column(String, nullable=True)
-    status = Column(String, default="pending", nullable=False)  # "pending", "success", "failed"
+    payment_method = Column(String, default="razorpay", nullable=False) # 'razorpay' or 'qr'
+    payment_proof = Column(String, nullable=True) # URL or path to QR screenshot
+    plan_name = Column(String, nullable=True) # To know which plan to activate
+    status = Column(String, default="pending", nullable=False)  # "pending", "pending_verification", "success", "failed"
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationship

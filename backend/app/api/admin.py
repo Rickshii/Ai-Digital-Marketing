@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Dict, Any, Optional
@@ -434,10 +434,94 @@ def delete_plan(
     current_admin: UserModel = Depends(get_current_admin)
 ):
     """Delete a subscription plan."""
-    plan = db.query(PlanPrice).filter(PlanPrice.id == plan_id).first()
-    if not plan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
     db.delete(plan)
     db.commit()
     return None
+
+import shutil
+import os
+
+@router.post("/platform-qr")
+def upload_platform_qr(
+    file: UploadFile = File(...),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Upload the central UPI/QR code image for payments."""
+    os.makedirs("uploads", exist_ok=True)
+    filepath = os.path.join("uploads", "platform_qr.png")
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"success": True, "url": "/uploads/platform_qr.png"}
+
+@router.get("/payments/pending")
+def list_pending_payments(
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    payments = db.query(Payment).filter(Payment.status == "pending_verification").all()
+    res = []
+    for p in payments:
+        u = db.query(UserModel).filter(UserModel.id == p.user_id).first()
+        res.append({
+            "id": p.id,
+            "user_email": u.email if u else "Unknown",
+            "amount": p.amount,
+            "payment_proof": p.payment_proof,
+            "created_at": p.created_at,
+            "razorpay_order_id": p.razorpay_order_id
+        })
+    return res
+
+@router.post("/payments/{payment_id}/approve")
+def approve_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    if payment.status != "pending_verification":
+        raise HTTPException(status_code=400, detail="Payment is not pending verification")
+
+    payment.status = "success"
+    
+    # Activate subscription
+    if payment.plan_name:
+        from app.models.subscription import PlanPrice
+        from app.services.access_service import AccessService
+        plan = db.query(PlanPrice).filter(PlanPrice.plan_name == payment.plan_name).first()
+        if plan:
+            AccessService.process_payment_and_subscription(
+                db=db,
+                user_id=payment.user_id,
+                plan_name=payment.plan_name,
+                amount=payment.amount,
+                razorpay_order_id=payment.razorpay_order_id,
+                razorpay_payment_id="qr_manual_" + str(payment_id),
+                razorpay_signature="qr_manual_approve",
+                secret="dummy_secret",
+                duration_days=plan.duration_days,
+            )
+            
+    db.commit()
+    return {"success": True, "detail": "Payment approved and subscription activated."}
+
+@router.post("/payments/{payment_id}/reject")
+def reject_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    if payment.status != "pending_verification":
+        raise HTTPException(status_code=400, detail="Payment is not pending verification")
+
+    payment.status = "failed"
+    db.commit()
+    return {"success": True, "detail": "Payment rejected."}
 
