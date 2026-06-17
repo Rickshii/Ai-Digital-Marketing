@@ -166,19 +166,77 @@ const Subscription = () => {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
 
-      {/* Trial expired alert */}
-      {accessStatus && !accessStatus.has_access && (
+      {/* Active Plan Status Card */}
+      {accessStatus && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-4 bg-red-50 border border-red-200 rounded-2xl p-5"
+          className={`rounded-3xl p-6 text-white border border-white/10 shadow-lg ${
+            !accessStatus.has_access
+              ? 'bg-gradient-to-br from-red-500 to-rose-600'
+              : accessStatus.subscription_active
+              ? 'bg-gradient-to-br from-violet-600 to-indigo-700'
+              : 'bg-gradient-to-br from-amber-500 to-orange-500'
+          }`}
         >
-          <AlertCircle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-bold text-red-800">Your Subscription Has Expired</h3>
-            <p className="text-red-700 text-sm mt-1">
-              Please choose a plan below to regain access to Website Audit, SEO Analysis, Social Media Analytics, Marketing Strategy, and PDF Reports.
-            </p>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {accessStatus.has_access
+                ? <ShieldCheck className="h-6 w-6" />
+                : <AlertCircle className="h-6 w-6 animate-pulse" />}
+              <span className="text-sm font-bold bg-white/20 px-4 py-1.5 rounded-full uppercase tracking-wider">
+                {!accessStatus.has_access
+                  ? 'Access Expired'
+                  : accessStatus.subscription_active
+                  ? accessStatus.subscription_plan || 'Active Plan'
+                  : `Free Trial`}
+              </span>
+            </div>
+            {accessStatus.trial_active && !accessStatus.subscription_active && (
+              <div className="text-right">
+                <span className="text-3xl font-extrabold">{accessStatus.trial_days_left}</span>
+                <span className="text-sm font-medium opacity-80 block -mt-1">days left</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {accessStatus.subscription_active && accessStatus.subscription_expiry && (
+              <>
+                <div className="flex items-center gap-3 bg-white/10 rounded-2xl p-4">
+                  <Calendar className="h-5 w-5 opacity-80" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest opacity-70 font-bold mb-0.5">Expiry Date</p>
+                    <p className="font-bold text-base">
+                      {new Date(accessStatus.subscription_expiry).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 bg-white/10 rounded-2xl p-4">
+                  <Clock className="h-5 w-5 opacity-80" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest opacity-70 font-bold mb-0.5">Days Remaining</p>
+                    <p className="font-bold text-base">
+                      {Math.max(0, Math.ceil(
+                        (new Date(accessStatus.subscription_expiry) - new Date()) / (1000 * 60 * 60 * 24)
+                      ))} days
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+            {accessStatus.trial_active && !accessStatus.subscription_active && (
+              <div className="col-span-full flex items-center gap-2 text-amber-50">
+                <Zap className="h-4 w-4 text-yellow-300" />
+                <span>Your trial started from the account registration date. Upgrade to avoid interruption.</span>
+              </div>
+            )}
+            {!accessStatus.has_access && (
+              <div className="col-span-full flex items-center gap-2 text-rose-50">
+                <AlertCircle className="h-4 w-4" />
+                <span>Your free trial has ended. Choose a plan below to restore full access.</span>
+              </div>
+            )}
           </div>
         </motion.div>
       )}
@@ -207,6 +265,7 @@ const Subscription = () => {
           <AnimatePresence>
             {plans.map((plan, index) => {
               const isPopular = plan.plan_name === POPULAR_PLAN;
+              const isActive = accessStatus?.subscription_active && accessStatus?.subscription_plan === plan.plan_name;
               const isProcessing = processingPlan === plan.plan_name;
               const features = PLAN_FEATURES[plan.plan_name] || [
                 "Full Platform Access",
@@ -266,17 +325,21 @@ const Subscription = () => {
                   {/* CTA */}
                   <button
                     onClick={() => handleSubscribe(plan)}
-                    disabled={!!processingPlan}
+                    disabled={!!processingPlan || isActive}
                     className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all
-                      ${isPopular
+                      ${isActive
+                        ? 'bg-violet-100 text-violet-600 cursor-default border border-violet-200'
+                        : isPopular
                         ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-violet-500/20'
                         : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {isProcessing ? (
                       <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                    ) : isActive ? (
+                      <><Check className="h-4 w-4" /> Current Plan</>
                     ) : (
-                      <><CreditCard className="h-4 w-4" /> Subscribe for ₹{plan.price.toLocaleString('en-IN')}</>
+                      <><CreditCard className="h-4 w-4" /> Buy Now — ₹{plan.price.toLocaleString('en-IN')}</>
                     )}
                   </button>
                 </motion.div>
@@ -305,16 +368,7 @@ const Subscription = () => {
         ))}
       </div>
 
-      {/* Trial info note */}
-      {accessStatus?.trial_active && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
-          <Clock className="h-5 w-5 text-amber-600 shrink-0" />
-          <p className="text-amber-800 text-sm">
-            <strong>You have {accessStatus.trial_days_left} day{accessStatus.trial_days_left !== 1 ? 's' : ''} left</strong> on your free trial.
-            Subscribe now to ensure uninterrupted access.
-          </p>
-        </div>
-      )}
+      {/* Note removed because trial status is now shown in the Status Card above */}
     </div>
   );
 };
