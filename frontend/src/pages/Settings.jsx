@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Bell, Shield, Palette, Globe, CreditCard,
   ChevronRight, CheckCircle, Save, Zap, Sun, Moon,
-  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff
+  Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff,
+  Calendar, Clock, AlertCircle, Loader2, Check, ShieldCheck
 } from 'lucide-react';
-import { businessAPI } from '../services/api';
+import { businessAPI, subscriptionAPI } from '../services/api';
 
 const sections = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -39,7 +40,7 @@ const integrations = [
 ];
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, accessStatus, refreshAccessStatus } = useAuth();
   const [section, setSection] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -55,6 +56,28 @@ const Settings = () => {
     location: '',
     bio: 'Enterprise marketing consultant specializing in SaaS growth, SEO optimization, and data-driven strategies.'
   });
+
+  // Billing state
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [processingPlan, setProcessingPlan] = useState(null);
+
+  const fetchPlans = useCallback(async () => {
+    setPlansLoading(true);
+    try {
+      const data = await subscriptionAPI.getPlans();
+      setPlans(data);
+    } catch (err) {
+      console.error('Failed to load plans', err);
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section === 'billing') fetchPlans();
+  }, [section, fetchPlans]);
+
   React.useEffect(() => {
     if (!user) return;
 
@@ -141,6 +164,72 @@ const Settings = () => {
 
   const handleInputChange = (field, value) => {
     setProfileForm(p => ({ ...p, [field]: value }));
+  };
+
+  const loadRazorpayScript = () =>
+    new Promise(resolve => {
+      if (document.getElementById('rzp-sdk')) return resolve(true);
+      const s = document.createElement('script');
+      s.id = 'rzp-sdk';
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.onload = () => resolve(true);
+      s.onerror = () => resolve(false);
+      document.body.appendChild(s);
+    });
+
+  const handleSubscribe = async (plan) => {
+    setProcessingPlan(plan.plan_name);
+    try {
+      const orderData = await subscriptionAPI.createOrder(plan.plan_name);
+
+      if (orderData.is_mock) {
+        const ok = window.confirm(
+          `[DEV MODE] Simulating payment for "${plan.plan_name}" (₹${plan.price}).\nClick OK to activate.`
+        );
+        if (!ok) { setProcessingPlan(null); return; }
+        const res = await subscriptionAPI.verifyPayment({
+          plan_name: plan.plan_name,
+          amount: plan.price,
+          razorpay_order_id: orderData.order_id,
+          razorpay_payment_id: `mock_pay_${Math.random().toString(36).substr(2, 8)}`,
+          razorpay_signature: 'mock_ok',
+        });
+        if (res.success) { await refreshAccessStatus(); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+        return;
+      }
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) { alert('Could not load payment gateway.'); return; }
+
+      const options = {
+        key: orderData.key_id,
+        amount: Math.round(orderData.amount * 100),
+        currency: orderData.currency || 'INR',
+        name: 'MarketerAI SaaS',
+        description: `${plan.plan_name} Plan`,
+        order_id: orderData.order_id,
+        handler: async (response) => {
+          try {
+            const res = await subscriptionAPI.verifyPayment({
+              plan_name: plan.plan_name,
+              amount: plan.price,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            if (res.success) { await refreshAccessStatus(); setSaved(true); setTimeout(() => setSaved(false), 3000); }
+          } catch (e) { alert('Verification failed: ' + (e.response?.data?.detail || e.message)); }
+        },
+        prefill: { name: user?.full_name || '', email: user?.email || '' },
+        theme: { color: '#7c3aed' },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      alert('Order creation failed: ' + (err.response?.data?.detail || 'Server error.'));
+    } finally {
+      setProcessingPlan(null);
+    }
   };
 
   const initials = user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
@@ -369,34 +458,158 @@ const Settings = () => {
 
             {/* Billing */}
             {section === 'billing' && (
-              <motion.div key="billing" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="p-6 space-y-5">
+              <motion.div key="billing" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="p-6 space-y-6">
                 <div>
-                  <h2 className="text-base font-bold text-slate-800">Billing & Plan</h2>
+                  <h2 className="text-base font-bold text-slate-800">Billing &amp; Plan</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Manage your subscription and payment details</p>
                 </div>
-                <div className="rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 p-5 text-white">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold bg-white/20 px-3 py-1 rounded-full">Pro Plan</span>
-                    <span className="text-2xl font-extrabold">$49<span className="text-base font-medium opacity-70">/mo</span></span>
+
+                {/* Payment success toast */}
+                {saved && (
+                  <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl px-4 py-3 text-sm font-semibold">
+                    <CheckCircle className="h-4 w-4 shrink-0" /> Subscription activated successfully!
                   </div>
-                  <p className="text-sm text-violet-200 mb-3">Unlimited audits, AI reports, and priority support</p>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Zap className="h-4 w-4 text-yellow-300" />
-                    <span>Next billing: July 9, 2026</span>
-                  </div>
-                </div>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {['Starter – $0/mo', 'Pro – $49/mo', 'Agency – $149/mo'].map((plan, i) => (
-                    <div key={plan} className={`rounded-xl border p-4 text-center ${i === 1 ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-slate-50'}`}>
-                      <p className="text-sm font-bold text-slate-800">{plan.split(' – ')[0]}</p>
-                      <p className="text-lg font-extrabold text-gradient">{plan.split(' – ')[1]}</p>
-                      {i === 1 && <span className="text-[10px] font-bold text-violet-600 bg-violet-100 rounded-full px-2 py-0.5 mt-1 inline-block">Current Plan</span>}
+                )}
+
+                {/* Active Plan Status Card */}
+                {accessStatus && (
+                  <div className={`rounded-2xl p-5 text-white ${
+                    !accessStatus.has_access
+                      ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                      : accessStatus.subscription_active
+                      ? 'bg-gradient-to-br from-violet-600 to-indigo-700'
+                      : 'bg-gradient-to-br from-amber-500 to-orange-500'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {accessStatus.has_access
+                          ? <ShieldCheck className="h-5 w-5" />
+                          : <AlertCircle className="h-5 w-5 animate-pulse" />}
+                        <span className="text-sm font-bold bg-white/20 px-3 py-1 rounded-full">
+                          {!accessStatus.has_access
+                            ? 'Access Expired'
+                            : accessStatus.subscription_active
+                            ? accessStatus.subscription_plan || 'Active Plan'
+                            : `Free Trial`}
+                        </span>
+                      </div>
+                      {accessStatus.trial_active && !accessStatus.subscription_active && (
+                        <span className="text-2xl font-extrabold">
+                          {accessStatus.trial_days_left}
+                          <span className="text-sm font-medium opacity-70"> days left</span>
+                        </span>
+                      )}
                     </div>
-                  ))}
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {accessStatus.subscription_active && accessStatus.subscription_expiry && (
+                        <>
+                          <div className="flex items-center gap-2 bg-white/10 rounded-xl p-3">
+                            <Calendar className="h-4 w-4 opacity-80" />
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider opacity-70">Expiry Date</p>
+                              <p className="font-bold text-sm">
+                                {new Date(accessStatus.subscription_expiry).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-white/10 rounded-xl p-3">
+                            <Clock className="h-4 w-4 opacity-80" />
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider opacity-70">Days Remaining</p>
+                              <p className="font-bold text-sm">
+                                {Math.max(0, Math.ceil(
+                                  (new Date(accessStatus.subscription_expiry) - new Date()) / (1000 * 60 * 60 * 24)
+                                ))} days
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      {accessStatus.trial_active && !accessStatus.subscription_active && (
+                        <div className="col-span-2 flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-yellow-300" />
+                          <span>Trial started from account registration date</span>
+                        </div>
+                      )}
+                      {!accessStatus.has_access && (
+                        <div className="col-span-2 flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>Your free trial has ended. Choose a plan below to restore access.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Plans Grid */}
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Available Plans</p>
+                  {plansLoading ? (
+                    <div className="flex items-center justify-center py-10 gap-3 text-slate-400 text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin" /> Loading plans...
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {plans.map((plan) => {
+                        const isActive = accessStatus?.subscription_active &&
+                          accessStatus?.subscription_plan === plan.plan_name;
+                        const isProcessing = processingPlan === plan.plan_name;
+                        return (
+                          <motion.div
+                            key={plan.id}
+                            whileHover={{ y: -2 }}
+                            className={`rounded-2xl border p-4 flex flex-col gap-3 transition-all ${
+                              isActive
+                                ? 'border-violet-300 bg-violet-50 ring-2 ring-violet-100'
+                                : 'border-slate-100 bg-slate-50 hover:border-violet-200 hover:bg-violet-50/30'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-sm font-extrabold text-slate-800">{plan.plan_name}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5">{plan.duration_days} days access</p>
+                              </div>
+                              {isActive && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full border border-violet-200">
+                                  <Check className="h-3 w-3" /> Active
+                                </span>
+                              )}
+                            </div>
+                            {plan.description && (
+                              <p className="text-[11px] text-slate-400 leading-relaxed">{plan.description}</p>
+                            )}
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xl font-black text-slate-800">₹{Number(plan.price).toLocaleString('en-IN')}</span>
+                              <span className="text-slate-400 text-xs">/ {plan.plan_name}</span>
+                            </div>
+                            <button
+                              onClick={() => handleSubscribe(plan)}
+                              disabled={!!processingPlan || isActive}
+                              className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                                isActive
+                                  ? 'bg-violet-100 text-violet-600 cursor-default'
+                                  : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md shadow-violet-500/10'
+                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                              {isProcessing ? (
+                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing...</>
+                              ) : isActive ? (
+                                <><Check className="h-3.5 w-3.5" /> Current Plan</>
+                              ) : (
+                                <><CreditCard className="h-3.5 w-3.5" /> Buy Now — ₹{Number(plan.price).toLocaleString('en-IN')}</>
+                              )}
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <button className="w-full rounded-xl border-2 border-dashed border-slate-200 py-3 text-sm font-semibold text-slate-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all">
-                  + Add Payment Method
-                </button>
+
+                <p className="text-[10px] text-slate-400 text-center">
+                  Payments are secured by Razorpay. Plans activate instantly after verification.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
