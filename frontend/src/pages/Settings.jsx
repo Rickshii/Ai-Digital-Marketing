@@ -246,7 +246,7 @@ const Settings = () => {
       <div className="flex gap-5 flex-col lg:flex-row">
         {/* Sidebar Nav */}
         <div className="lg:w-56 bg-white rounded-2xl border border-slate-100 shadow-sm p-3 h-fit">
-          {sections.map(s => (
+          {sections.filter(s => s.id !== 'billing' || user?.role !== 'admin').map(s => (
             <button key={s.id} onClick={() => setSection(s.id)}
               className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all mb-0.5 ${section === s.id ? 'bg-violet-50 text-violet-700 border border-violet-100' : 'text-slate-500 hover:bg-slate-50'}`}>
               <s.icon className="h-4 w-4" />
@@ -459,7 +459,7 @@ const Settings = () => {
             )}
 
             {/* Billing */}
-            {section === 'billing' && (
+            {section === 'billing' && user?.role !== 'admin' && (
               <motion.div key="billing" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="p-6 space-y-6">
                 <div>
                   <h2 className="text-base font-bold text-slate-800">Billing &amp; Plan</h2>
