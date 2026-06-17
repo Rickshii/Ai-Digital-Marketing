@@ -57,3 +57,14 @@ class UserAccessLog(Base):
 
     # Relationship
     user = relationship("User", back_populates="access_logs")
+
+class PlanPrice(Base):
+    __tablename__ = "plan_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plan_name = Column(String, unique=True, index=True, nullable=False)  # "15 Days", "1 Month", "3 Months", "6 Months", "1 Year"
+    price = Column(Float, nullable=False)
+    duration_days = Column(Integer, nullable=False)
+    description = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

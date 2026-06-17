@@ -1188,9 +1188,24 @@ export const subscriptionAPI = {
         return { success: true, detail: "Subscription activated successfully." };
       }
     );
+  },
+
+  getPlans: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/subscription/plans');
+        return response.data;
+      },
+      () => [
+        { id: 1, plan_name: "15 Days",  price: 299,  duration_days: 15,  description: "Perfect for quick audit reports and campaign testing." },
+        { id: 2, plan_name: "1 Month",  price: 499,  duration_days: 30,  description: "Standard monthly access to refine your marketing systems." },
+        { id: 3, plan_name: "3 Months", price: 1299, duration_days: 90,  description: "Medium-term plan for growing businesses and active audits." },
+        { id: 4, plan_name: "6 Months", price: 2299, duration_days: 180, description: "Semi-annual package for established marketing consultants." },
+        { id: 5, plan_name: "1 Year",   price: 3999, duration_days: 365, description: "Ultimate yearly pass with full executive privileges." },
+      ]
+    );
   }
 };
-
 
 export const adminAPI = {
   getStats: async () => {
@@ -1379,6 +1394,72 @@ export const adminAPI = {
         const filtered = reports.filter(r => r.id !== id && r.id !== parseInt(id));
         setLocalData('mock_reports', filtered);
         return { message: 'Report deleted successfully' };
+      }
+    );
+  },
+
+  // ── Plan Price Management ────────────────────────────────────────────────
+  getPlans: async () => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.get('/admin/plans');
+        return response.data;
+      },
+      () => [
+        { id: 1, plan_name: "15 Days",  price: 299,  duration_days: 15,  description: "Quick audit reports." },
+        { id: 2, plan_name: "1 Month",  price: 499,  duration_days: 30,  description: "Standard monthly access." },
+        { id: 3, plan_name: "3 Months", price: 1299, duration_days: 90,  description: "Medium-term plan." },
+        { id: 4, plan_name: "6 Months", price: 2299, duration_days: 180, description: "Semi-annual package." },
+        { id: 5, plan_name: "1 Year",   price: 3999, duration_days: 365, description: "Ultimate yearly pass." },
+      ]
+    );
+  },
+
+  createPlan: async (planData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/admin/plans', planData);
+        return response.data;
+      },
+      () => {
+        const plans = getLocalData('mock_plans', []);
+        const newPlan = { id: Date.now(), ...planData, updated_at: new Date().toISOString() };
+        plans.push(newPlan);
+        setLocalData('mock_plans', plans);
+        return { ...newPlan, detail: 'Plan created successfully.' };
+      }
+    );
+  },
+
+  updatePlan: async (id, planData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.put(`/admin/plans/${id}`, planData);
+        return response.data;
+      },
+      () => {
+        const plans = getLocalData('mock_plans', []);
+        const idx = plans.findIndex(p => p.id === id || p.id === parseInt(id));
+        if (idx !== -1) {
+          plans[idx] = { ...plans[idx], ...planData, updated_at: new Date().toISOString() };
+          setLocalData('mock_plans', plans);
+          return { ...plans[idx], detail: 'Plan updated successfully.' };
+        }
+        return { detail: 'Plan updated (local fallback).' };
+      }
+    );
+  },
+
+  deletePlan: async (id) => {
+    return executeWithFallback(
+      async () => {
+        await api.delete(`/admin/plans/${id}`);
+        return { detail: 'Plan deleted.' };
+      },
+      () => {
+        const plans = getLocalData('mock_plans', []);
+        setLocalData('mock_plans', plans.filter(p => p.id !== id && p.id !== parseInt(id)));
+        return { detail: 'Plan deleted (local fallback).' };
       }
     );
   }

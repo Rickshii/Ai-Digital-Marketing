@@ -13,7 +13,7 @@ from app.models.social_media import SocialMediaAnalysis
 from app.models.report import Report
 from app.models.marketing_strategy import MarketingStrategy
 from app.models.business import BusinessProfile
-from app.models.subscription import Payment, Subscription, TrialHistory
+from app.models.subscription import Payment, Subscription, TrialHistory, PlanPrice
 from app.services.access_service import AccessService
 from app.core.security import get_password_hash
 from app.schemas.user import User as UserSchema
@@ -320,3 +320,124 @@ def delete_report(
     db.delete(report)
     db.commit()
     return None
+
+# ─── Plan Price Management ──────────────────────────────────────────────────
+
+DEFAULT_PLANS = [
+    {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
+    {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
+    {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits."},
+    {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants."},
+    {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges."},
+]
+
+class PlanPriceUpdate(BaseModel):
+    plan_name: str
+    price: float
+    duration_days: int
+    description: Optional[str] = None
+
+
+@router.get("/plans", response_model=List[Dict[str, Any]])
+def list_plans(
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """List all subscription plans and their prices. Seeds defaults if empty."""
+    plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+    if not plans:
+        # Seed defaults on first access
+        for p in DEFAULT_PLANS:
+            db.add(PlanPrice(**p))
+        db.commit()
+        plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+    return [
+        {
+            "id": p.id,
+            "plan_name": p.plan_name,
+            "price": p.price,
+            "duration_days": p.duration_days,
+            "description": p.description,
+            "updated_at": p.updated_at,
+        }
+        for p in plans
+    ]
+
+
+@router.put("/plans/{plan_id}", response_model=Dict[str, Any])
+def update_plan(
+    plan_id: int,
+    body: PlanPriceUpdate,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Update the price / duration / description of a plan."""
+    plan = db.query(PlanPrice).filter(PlanPrice.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
+
+    plan.plan_name    = body.plan_name
+    plan.price        = body.price
+    plan.duration_days= body.duration_days
+    plan.description  = body.description
+    plan.updated_at   = datetime.utcnow()
+    db.commit()
+    db.refresh(plan)
+    return {
+        "id": plan.id,
+        "plan_name": plan.plan_name,
+        "price": plan.price,
+        "duration_days": plan.duration_days,
+        "description": plan.description,
+        "updated_at": plan.updated_at,
+        "detail": "Plan updated successfully."
+    }
+
+
+@router.post("/plans", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+def create_plan(
+    body: PlanPriceUpdate,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Create a new subscription plan."""
+    existing = db.query(PlanPrice).filter(PlanPrice.plan_name == body.plan_name).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A plan named '{body.plan_name}' already exists. Use PUT to update it."
+        )
+    new_plan = PlanPrice(
+        plan_name=body.plan_name,
+        price=body.price,
+        duration_days=body.duration_days,
+        description=body.description,
+    )
+    db.add(new_plan)
+    db.commit()
+    db.refresh(new_plan)
+    return {
+        "id": new_plan.id,
+        "plan_name": new_plan.plan_name,
+        "price": new_plan.price,
+        "duration_days": new_plan.duration_days,
+        "description": new_plan.description,
+        "updated_at": new_plan.updated_at,
+        "detail": "Plan created successfully."
+    }
+
+
+@router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Delete a subscription plan."""
+    plan = db.query(PlanPrice).filter(PlanPrice.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
+    db.delete(plan)
+    db.commit()
+    return None
+

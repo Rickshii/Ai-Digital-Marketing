@@ -2,36 +2,108 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2,
-  Eye, Edit2, X, Check, CreditCard, Calendar, Filter, Building, User, Info, Key
+  Eye, Edit2, X, Check, CreditCard, Calendar, Filter, Building, User, Key,
+  PlusCircle, DollarSign, Tag, Save
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
+
+const BLANK_PLAN = { plan_name: '', price: '', duration_days: '', description: '' };
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('users'); // 'users', 'reports', 'analytics'
+  const [activeTab, setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Filters state
-  const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'admin', 'user'
-  const [planFilter, setPlanFilter] = useState('all'); // 'all', 'trial', 'active', 'expired'
+  // Filters
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
 
-  // Edit/Preview Modals state
+  // User modals
   const [previewUser, setPreviewUser] = useState(null);
   const [editUser, setEditUser] = useState(null);
-
-  // Edit form state
-  const [editForm, setEditForm] = useState({
-    full_name: '',
-    email: '',
-    role: 'user',
-    password: ''
-  });
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', role: 'user', password: '' });
   const [editFormLoading, setEditFormLoading] = useState(false);
   const [editFormError, setEditFormError] = useState('');
+
+  // Plan management state
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(null);  // plan object being edited
+  const [showNewPlanForm, setShowNewPlanForm] = useState(false);
+  const [newPlan, setNewPlan] = useState(BLANK_PLAN);
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState('');
+
+  const fetchPlans = async () => {
+    setPlansLoading(true);
+    try {
+      const data = await adminAPI.getPlans();
+      setPlans(data);
+    } catch (err) {
+      console.error('Failed to load plans', err);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const handleSaveNewPlan = async (e) => {
+    e.preventDefault();
+    setPlanError('');
+    if (!newPlan.plan_name || !newPlan.price || !newPlan.duration_days) {
+      setPlanError('Plan name, price, and duration are required.');
+      return;
+    }
+    setPlanSaving(true);
+    try {
+      const created = await adminAPI.createPlan({
+        plan_name: newPlan.plan_name,
+        price: parseFloat(newPlan.price),
+        duration_days: parseInt(newPlan.duration_days),
+        description: newPlan.description || null,
+      });
+      setPlans(prev => [...prev, created]);
+      setNewPlan(BLANK_PLAN);
+      setShowNewPlanForm(false);
+    } catch (err) {
+      setPlanError(err.response?.data?.detail || 'Failed to create plan.');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
+
+  const handleUpdatePlan = async (e) => {
+    e.preventDefault();
+    setPlanError('');
+    setPlanSaving(true);
+    try {
+      const updated = await adminAPI.updatePlan(editingPlan.id, {
+        plan_name: editingPlan.plan_name,
+        price: parseFloat(editingPlan.price),
+        duration_days: parseInt(editingPlan.duration_days),
+        description: editingPlan.description || null,
+      });
+      setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
+      setEditingPlan(null);
+    } catch (err) {
+      setPlanError(err.response?.data?.detail || 'Failed to update plan.');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
+
+  const handleDeletePlan = async (planId) => {
+    if (!window.confirm('Delete this plan? Existing subscriptions will not be affected.')) return;
+    try {
+      await adminAPI.deletePlan(planId);
+      setPlans(prev => prev.filter(p => p.id !== planId));
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete plan.');
+    }
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -55,6 +127,10 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchAdminData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'plans') fetchPlans();
+  }, [activeTab]);
 
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to permanently delete this user? This will remove all their audits, profile, and reports.')) {
@@ -227,9 +303,10 @@ const AdminDashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 px-5 pt-4 pb-4 gap-4 bg-slate-50/20">
           <div className="flex gap-1 border border-slate-100 p-1 rounded-xl bg-slate-50 self-start">
             {[
-              { id: 'users', label: 'User Management', count: users.length },
-              { id: 'reports', label: 'Report Management', count: reports.length },
-              { id: 'analytics', label: 'System Analytics', count: null }
+              { id: 'users',     label: 'User Management',  count: users.length },
+              { id: 'reports',   label: 'Report Management', count: reports.length },
+              { id: 'plans',     label: 'Plan Pricing',      count: plans.length || null },
+              { id: 'analytics', label: 'System Analytics',  count: null },
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === tab.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -443,6 +520,156 @@ const AdminDashboard = () => {
                     )}
                   </tbody>
                 </table>
+              </motion.div>
+            )}
+
+            {activeTab === 'plans' && (
+              <motion.div key="plans" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm">Subscription Plan Pricing</h3>
+                    <p className="text-slate-400 text-xs mt-0.5">Prices shown here are used on the public Subscription page and during order creation.</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowNewPlanForm(true); setPlanError(''); }}
+                    className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md shadow-violet-500/10 transition-all"
+                  >
+                    <PlusCircle className="h-4 w-4" /> Add New Plan
+                  </button>
+                </div>
+
+                {planError && (
+                  <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl p-3 text-red-700 text-xs font-semibold">
+                    <AlertCircle className="h-4 w-4 shrink-0" />{planError}
+                  </div>
+                )}
+
+                {/* New plan form */}
+                {showNewPlanForm && (
+                  <motion.form
+                    onSubmit={handleSaveNewPlan}
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    className="bg-violet-50 border border-violet-100 rounded-2xl p-5 space-y-4"
+                  >
+                    <h4 className="font-bold text-violet-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" /> New Subscription Plan
+                    </h4>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-violet-700 uppercase">Plan Name</label>
+                        <input required value={newPlan.plan_name} onChange={e => setNewPlan(p => ({ ...p, plan_name: e.target.value }))}
+                          placeholder="e.g. 2 Months"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-violet-700 uppercase">Price (₹)</label>
+                        <input required type="number" min="1" step="0.01" value={newPlan.price} onChange={e => setNewPlan(p => ({ ...p, price: e.target.value }))}
+                          placeholder="e.g. 799"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-violet-700 uppercase">Duration (Days)</label>
+                        <input required type="number" min="1" value={newPlan.duration_days} onChange={e => setNewPlan(p => ({ ...p, duration_days: e.target.value }))}
+                          placeholder="e.g. 60"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-violet-700 uppercase">Description</label>
+                        <input value={newPlan.description} onChange={e => setNewPlan(p => ({ ...p, description: e.target.value }))}
+                          placeholder="Short description (optional)"
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => { setShowNewPlanForm(false); setNewPlan(BLANK_PLAN); setPlanError(''); }}
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100">
+                        Cancel
+                      </button>
+                      <button type="submit" disabled={planSaving}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-50">
+                        <Save className="h-3.5 w-3.5" /> {planSaving ? 'Saving...' : 'Save Plan'}
+                      </button>
+                    </div>
+                  </motion.form>
+                )}
+
+                {/* Plans grid */}
+                {plansLoading ? (
+                  <div className="flex items-center justify-center py-12 text-slate-400 text-sm gap-3">
+                    <div className="h-5 w-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                    Loading plans...
+                  </div>
+                ) : plans.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-sm">
+                    No plans found. Click "Add New Plan" to create the first one.
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {plans.map(plan => (
+                      <div key={plan.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-3">
+                        {editingPlan?.id === plan.id ? (
+                          /* Inline edit form */
+                          <form onSubmit={handleUpdatePlan} className="space-y-3">
+                            <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Editing Plan</h4>
+                            <div className="space-y-2">
+                              <input required value={editingPlan.plan_name} onChange={e => setEditingPlan(p => ({ ...p, plan_name: e.target.value }))}
+                                placeholder="Plan name" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
+                              <div className="grid grid-cols-2 gap-2">
+                                <input required type="number" min="1" step="0.01" value={editingPlan.price} onChange={e => setEditingPlan(p => ({ ...p, price: e.target.value }))}
+                                  placeholder="Price ₹" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
+                                <input required type="number" min="1" value={editingPlan.duration_days} onChange={e => setEditingPlan(p => ({ ...p, duration_days: e.target.value }))}
+                                  placeholder="Days" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
+                              </div>
+                              <input value={editingPlan.description || ''} onChange={e => setEditingPlan(p => ({ ...p, description: e.target.value }))}
+                                placeholder="Description" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
+                            </div>
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => setEditingPlan(null)}
+                                className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50">
+                                Cancel
+                              </button>
+                              <button type="submit" disabled={planSaving}
+                                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-700 disabled:opacity-50">
+                                <Check className="h-3.5 w-3.5" />{planSaving ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          /* Display view */
+                          <>
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-extrabold text-slate-800 text-sm">{plan.plan_name}</p>
+                                <p className="text-slate-400 text-[11px] mt-0.5">{plan.duration_days} days access</p>
+                              </div>
+                              <div className="flex items-baseline gap-0.5">
+                                <span className="text-xl font-black text-violet-600">₹{Number(plan.price).toLocaleString('en-IN')}</span>
+                              </div>
+                            </div>
+                            {plan.description && (
+                              <p className="text-slate-400 text-[11px] leading-relaxed border-t border-slate-50 pt-2">{plan.description}</p>
+                            )}
+                            <div className="flex gap-2 pt-1 border-t border-slate-50">
+                              <button onClick={() => { setEditingPlan({ ...plan }); setPlanError(''); }}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-all">
+                                <Edit2 className="h-3.5 w-3.5" /> Edit
+                              </button>
+                              <button onClick={() => handleDeletePlan(plan.id)}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-red-100 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-all">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-[10px] text-slate-400 text-center pt-2">
+                  Changes take effect immediately on the public Subscription page. Existing active subscriptions are not affected.
+                </p>
               </motion.div>
             )}
 
