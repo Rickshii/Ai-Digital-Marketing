@@ -1139,20 +1139,17 @@ export const subscriptionAPI = {
         return response.data;
       },
       () => {
-        const prices = {
-          "15 Days": 299,
-          "1 Month": 499,
-          "3 Months": 1299,
-          "6 Months": 2299,
-          "1 Year": 3999
-        };
+        // Use cached plans from a prior getPlans() call if available, else fall back to defaults
+        const cachedPlans = getLocalData('mock_plans_public', []);
+        const matched = cachedPlans.find(p => p.plan_name === planName);
+        const fallbackPrices = { "15 Days": 299, "1 Month": 499, "3 Months": 1299, "6 Months": 2299, "1 Year": 3999 };
         return {
           success: true,
           order_id: `mock_order_${Math.random().toString(36).substring(2, 14)}`,
-          amount: prices[planName] || 499,
-          currency: "INR",
-          key_id: "dummy_key",
-          is_mock: true
+          amount: matched ? matched.price : (fallbackPrices[planName] || 499),
+          currency: 'INR',
+          key_id: 'dummy_key',
+          is_mock: true,
         };
       }
     );
@@ -1165,27 +1162,30 @@ export const subscriptionAPI = {
         return response.data;
       },
       () => {
-        const durationDays = {
-          "15 Days": 15,
-          "1 Month": 30,
-          "3 Months": 90,
-          "6 Months": 180,
-          "1 Year": 365
-        }[verificationData.plan_name] || 30;
+        // Use duration_days passed by caller (from plan object), fall back to name-matching
+        const durationDays = verificationData.duration_days || ({
+          '15 Days': 15, '1 Month': 30, '3 Months': 90, '6 Months': 180, '1 Year': 365
+        }[verificationData.plan_name] || 30);
 
-        const mockSub = getLocalData('mock_subscription', {});
         const now = new Date();
         const expiry = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
+        const mockSub = getLocalData('mock_subscription', {});
         const updated = {
           ...mockSub,
           has_access: true,
+          trial_active: mockSub.trial_active || false,
           subscription_active: true,
           subscription_plan: verificationData.plan_name,
           subscription_expiry: expiry.toISOString(),
         };
         setLocalData('mock_subscription', updated);
-        return { success: true, detail: "Subscription activated successfully." };
+        return {
+          success: true,
+          detail: 'Subscription activated successfully.',
+          plan_name: verificationData.plan_name,
+          expiry_date: expiry.toISOString(),
+          duration_days: durationDays,
+        };
       }
     );
   },
@@ -1194,18 +1194,24 @@ export const subscriptionAPI = {
     return executeWithFallback(
       async () => {
         const response = await api.get('/subscription/plans');
+        setLocalData('mock_plans_public', response.data); // cache for createOrder fallback
         return response.data;
       },
-      () => [
-        { id: 1, plan_name: "15 Days",  price: 299,  duration_days: 15,  description: "Perfect for quick audit reports and campaign testing." },
-        { id: 2, plan_name: "1 Month",  price: 499,  duration_days: 30,  description: "Standard monthly access to refine your marketing systems." },
-        { id: 3, plan_name: "3 Months", price: 1299, duration_days: 90,  description: "Medium-term plan for growing businesses and active audits." },
-        { id: 4, plan_name: "6 Months", price: 2299, duration_days: 180, description: "Semi-annual package for established marketing consultants." },
-        { id: 5, plan_name: "1 Year",   price: 3999, duration_days: 365, description: "Ultimate yearly pass with full executive privileges." },
-      ]
+      () => {
+        const defaults = [
+          { id: 1, plan_name: '15 Days',  price: 299,  duration_days: 15,  description: 'Perfect for quick audit reports and campaign testing.' },
+          { id: 2, plan_name: '1 Month',  price: 499,  duration_days: 30,  description: 'Standard monthly access to refine your marketing systems.' },
+          { id: 3, plan_name: '3 Months', price: 1299, duration_days: 90,  description: 'Medium-term plan for growing businesses and active audits.' },
+          { id: 4, plan_name: '6 Months', price: 2299, duration_days: 180, description: 'Semi-annual package for established marketing consultants.' },
+          { id: 5, plan_name: '1 Year',   price: 3999, duration_days: 365, description: 'Ultimate yearly pass with full executive privileges.' },
+        ];
+        setLocalData('mock_plans_public', defaults);
+        return defaults;
+      }
     );
   }
 };
+
 
 export const adminAPI = {
   getStats: async () => {

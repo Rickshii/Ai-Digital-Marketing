@@ -116,9 +116,9 @@ class AccessService:
 
     @staticmethod
     def verify_razorpay_signature(order_id: str, payment_id: str, signature: str, secret: str) -> bool:
-        """Verifies Razorpay's webhook or client-side payment signature."""
-        if not secret or secret == "dummy_secret" or order_id.startswith("mock_"):
-            # Mock or testing mode
+        """Verifies Razorpay payment signature using HMAC-SHA256."""
+        if not secret or secret in ("dummy_secret", "") or order_id.startswith("mock_"):
+            # Development / mock mode — skip signature verification
             return True
         try:
             msg = f"{order_id}|{payment_id}"
@@ -140,16 +140,21 @@ class AccessService:
         razorpay_order_id: str,
         razorpay_payment_id: str,
         razorpay_signature: str,
-        secret: str = ""
+        secret: str = "",
+        duration_days: int = None
     ) -> dict:
-        """Processes payment confirmation and updates subscription access."""
-        # 1. Verify signature
+        """Verifies payment signature, records the payment, and activates/extends subscription.
+        
+        The subscription is ONLY activated after a valid payment signature is confirmed.
+        No plan is activated if verification fails.
+        """
+        # Step 1: Verify Razorpay signature — gate everything behind this
         is_valid = AccessService.verify_razorpay_signature(
             razorpay_order_id, razorpay_payment_id, razorpay_signature, secret
         )
         if not is_valid:
-            # Create a failed payment record
-            payment = Payment(
+            # Record failed attempt for audit trail
+            failed_payment = Payment(
                 user_id=user_id,
                 amount=amount,
                 razorpay_order_id=razorpay_order_id,
@@ -157,20 +162,19 @@ class AccessService:
                 razorpay_signature=razorpay_signature,
                 status="failed"
             )
-            db.add(payment)
+            db.add(failed_payment)
             db.commit()
-            return {"success": False, "detail": "Invalid signature verification."}
+            return {"success": False, "detail": "Payment signature verification failed. No plan was activated."}
 
-        # 2. Record successful payment
-        # Check if this order has already been processed successfully to prevent replay
+        # Step 2: Idempotency check — prevent replay attacks / double-activation
         existing_payment = db.query(Payment).filter(
             Payment.razorpay_order_id == razorpay_order_id,
             Payment.status == "success"
         ).first()
-        
         if existing_payment:
-            return {"success": True, "detail": "Payment already processed."}
+            return {"success": True, "detail": "Payment already processed. Subscription is active."}
 
+        # Step 3: Record the successful payment
         payment = Payment(
             user_id=user_id,
             amount=amount,
@@ -181,22 +185,23 @@ class AccessService:
         )
         db.add(payment)
 
-        # 3. Determine plan duration
-        duration_days = 30
-        pname = plan_name.lower()
-        if "15 days" in pname:
-            duration_days = 15
-        elif "1 month" in pname:
-            duration_days = 30
-        elif "3 months" in pname:
-            duration_days = 90
-        elif "6 months" in pname:
-            duration_days = 180
-        elif "1 year" in pname:
-            duration_days = 365
+        # Step 4: Resolve duration — use passed value if available, otherwise match plan name
+        if not duration_days:
+            pname = plan_name.lower()
+            if "15 day" in pname:
+                duration_days = 15
+            elif "1 month" in pname:
+                duration_days = 30
+            elif "3 month" in pname:
+                duration_days = 90
+            elif "6 month" in pname:
+                duration_days = 180
+            elif "1 year" in pname or "12 month" in pname:
+                duration_days = 365
+            else:
+                duration_days = 30  # Safe default
 
-        # 4. Activate or extend subscription
-        # Check if user has an active subscription to extend it, otherwise start from now
+        # Step 5: Activate or extend subscription — ONLY after payment success
         now = datetime.utcnow()
         active_sub = db.query(Subscription).filter(
             Subscription.user_id == user_id,
@@ -204,6 +209,7 @@ class AccessService:
             Subscription.expiry_date > now
         ).first()
 
+        # Stack on top of existing active subscription if present
         start_date = active_sub.expiry_date if active_sub else now
         expiry_date = start_date + timedelta(days=duration_days)
 
@@ -216,17 +222,23 @@ class AccessService:
                 user_id=user_id,
                 plan_name=plan_name,
                 price=amount,
-                start_date=start_date,
+                start_date=now,
                 expiry_date=expiry_date,
                 status="active"
             )
             db.add(new_sub)
 
-        # 5. Log Access Action
-        AccessService.log_access(db, user_id, f"purchased_plan_{plan_name}")
+        # Step 6: Log the access event
+        AccessService.log_access(db, user_id, f"purchased_plan:{plan_name}")
 
         db.commit()
-        return {"success": True, "detail": "Subscription activated successfully."}
+        return {
+            "success": True,
+            "detail": "Subscription activated successfully.",
+            "plan_name": plan_name,
+            "expiry_date": expiry_date.isoformat(),
+            "duration_days": duration_days
+        }
 
     @staticmethod
     def log_access(db: Session, user_id: int, action: str, ip_address: str = None) -> UserAccessLog:

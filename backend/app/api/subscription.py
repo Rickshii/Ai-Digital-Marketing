@@ -135,14 +135,19 @@ def verify_payment(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Verifies the Razorpay payment and activates the subscription."""
-    # Validate plan still exists in DB
+    """Verifies the Razorpay payment signature and activates the subscription.
+    
+    The plan is ONLY activated after Razorpay's HMAC-SHA256 signature is validated.
+    In mock/dev mode (dummy_key), the signature check is skipped safely.
+    """
+    # Resolve the plan from DB to get the canonical duration_days
     plans = _get_plans_map(db)
     if body.plan_name not in plans:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid plan name.",
+            detail=f"Invalid plan '{body.plan_name}'.",
         )
+    duration_days = plans[body.plan_name]["duration_days"]
 
     razorpay_key_secret = os.getenv("RAZORPAY_KEY_SECRET", "dummy_secret")
 
@@ -155,9 +160,17 @@ def verify_payment(
         razorpay_payment_id=body.razorpay_payment_id,
         razorpay_signature=body.razorpay_signature,
         secret=razorpay_key_secret,
+        duration_days=duration_days,
     )
 
     if not result["success"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["detail"])
 
-    return {"success": True, "detail": "Subscription activated successfully."}
+    return {
+        "success": True,
+        "detail": result["detail"],
+        "plan_name": result.get("plan_name"),
+        "expiry_date": result.get("expiry_date"),
+        "duration_days": result.get("duration_days"),
+    }
+

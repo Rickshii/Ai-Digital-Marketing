@@ -190,6 +190,7 @@ const Settings = () => {
         const res = await subscriptionAPI.verifyPayment({
           plan_name: plan.plan_name,
           amount: plan.price,
+          duration_days: plan.duration_days,
           razorpay_order_id: orderData.order_id,
           razorpay_payment_id: `mock_pay_${Math.random().toString(36).substr(2, 8)}`,
           razorpay_signature: 'mock_ok',
@@ -206,13 +207,14 @@ const Settings = () => {
         amount: Math.round(orderData.amount * 100),
         currency: orderData.currency || 'INR',
         name: 'MarketerAI SaaS',
-        description: `${plan.plan_name} Plan`,
+        description: `${plan.plan_name} Plan — ₹${Number(plan.price).toLocaleString('en-IN')} / ${plan.duration_days} days`,
         order_id: orderData.order_id,
         handler: async (response) => {
           try {
             const res = await subscriptionAPI.verifyPayment({
               plan_name: plan.plan_name,
               amount: plan.price,
+              duration_days: plan.duration_days,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,

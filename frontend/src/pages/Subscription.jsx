@@ -98,20 +98,19 @@ const Subscription = () => {
       const orderData = await subscriptionAPI.createOrder(plan.plan_name);
 
       if (orderData.is_mock) {
-        // Simulated payment flow for dev / missing Razorpay keys
         const confirmed = window.confirm(
-          `[DEV MODE] Simulating payment for "${plan.plan_name}" plan (₹${plan.price}).\n\nClick OK to activate the subscription locally.`
+          `[DEV MODE] Simulating payment for "${plan.plan_name}" plan (\u20b9${plan.price} / ${plan.duration_days} days).\n\nClick OK to activate the subscription locally.`
         );
         if (!confirmed) { setProcessingPlan(null); return; }
 
-        const verification = {
+        const res = await subscriptionAPI.verifyPayment({
           plan_name: plan.plan_name,
           amount: plan.price,
+          duration_days: plan.duration_days,
           razorpay_order_id: orderData.order_id,
           razorpay_payment_id: `mock_pay_${Math.random().toString(36).substr(2, 10)}`,
           razorpay_signature: 'mock_success_signature',
-        };
-        const res = await subscriptionAPI.verifyPayment(verification);
+        });
         if (res.success) {
           await refreshAccessStatus();
           navigate('/dashboard');
@@ -131,18 +130,18 @@ const Subscription = () => {
         amount: Math.round(orderData.amount * 100),
         currency: orderData.currency || 'INR',
         name: 'MarketerAI SaaS',
-        description: `${plan.plan_name} Plan — ₹${plan.price}`,
+        description: `${plan.plan_name} Plan \u2014 \u20b9${Number(plan.price).toLocaleString('en-IN')} / ${plan.duration_days} days`,
         order_id: orderData.order_id,
         handler: async (response) => {
           try {
-            const verification = {
+            const verifyRes = await subscriptionAPI.verifyPayment({
               plan_name: plan.plan_name,
               amount: plan.price,
+              duration_days: plan.duration_days,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-            };
-            const verifyRes = await subscriptionAPI.verifyPayment(verification);
+            });
             if (verifyRes.success) {
               await refreshAccessStatus();
               navigate('/dashboard');
