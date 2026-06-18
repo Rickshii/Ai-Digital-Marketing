@@ -13,21 +13,22 @@ from app.services.access_service import AccessService
 
 router = APIRouter(prefix="/subscription", tags=["Subscription and Payments"])
 
-# ── Default prices used when plan_prices table is empty ─────────────────────
-DEFAULT_PLANS = {
-    "15 Days":  {"price": 299.0,  "duration_days": 15},
-    "1 Month":  {"price": 499.0,  "duration_days": 30},
-    "3 Months": {"price": 1299.0, "duration_days": 90},
-    "6 Months": {"price": 2299.0, "duration_days": 180},
-    "1 Year":   {"price": 3999.0, "duration_days": 365},
-}
-
 def _get_plans_map(db: Session) -> Dict[str, Dict]:
-    """Returns {plan_name: {price, duration_days}} from DB, falling back to defaults."""
+    """Returns {plan_name: {price, duration_days}} from DB."""
     db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
-    if db_plans:
-        return {p.plan_name: {"price": p.price, "duration_days": p.duration_days} for p in db_plans}
-    return DEFAULT_PLANS
+    if not db_plans:
+        # Seed defaults to DB to guarantee there are plans in PostgreSQL
+        for p in [
+            {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
+            {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
+            {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits."},
+            {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants."},
+            {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges."},
+        ]:
+            db.add(PlanPrice(**p))
+        db.commit()
+        db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+    return {p.plan_name: {"price": p.price, "duration_days": p.duration_days} for p in db_plans}
 
 
 class CreateOrderRequest(BaseModel):
@@ -47,21 +48,28 @@ class VerifyPaymentRequest(BaseModel):
 def list_public_plans(db: Session = Depends(get_db)):
     """Returns all available subscription plans with their current prices."""
     db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
-    if db_plans:
-        return [
-            {
-                "id": p.id,
-                "plan_name": p.plan_name,
-                "price": p.price,
-                "duration_days": p.duration_days,
-                "description": p.description,
-            }
-            for p in db_plans
-        ]
-    # Fallback to hard-coded defaults
+    if not db_plans:
+        # Seed defaults to DB to guarantee there are plans in PostgreSQL
+        for p in [
+            {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
+            {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
+            {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits."},
+            {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants."},
+            {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges."},
+        ]:
+            db.add(PlanPrice(**p))
+        db.commit()
+        db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+        
     return [
-        {"id": i + 1, "plan_name": k, "price": v["price"], "duration_days": v["duration_days"], "description": ""}
-        for i, (k, v) in enumerate(DEFAULT_PLANS.items())
+        {
+            "id": p.id,
+            "plan_name": p.plan_name,
+            "price": p.price,
+            "duration_days": p.duration_days,
+            "description": p.description,
+        }
+        for p in db_plans
     ]
 
 

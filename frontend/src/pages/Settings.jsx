@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -40,6 +41,7 @@ const integrations = [
 ];
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { user, accessStatus, refreshAccessStatus } = useAuth();
   const [section, setSection] = useState('profile');
   const [saved, setSaved] = useState(false);
@@ -60,7 +62,6 @@ const Settings = () => {
   // Billing state
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [processingPlan, setProcessingPlan] = useState(null);
 
   const fetchPlans = useCallback(async () => {
     setPlansLoading(true);
@@ -166,73 +167,7 @@ const Settings = () => {
     setProfileForm(p => ({ ...p, [field]: value }));
   };
 
-  const loadRazorpayScript = () =>
-    new Promise(resolve => {
-      if (document.getElementById('rzp-sdk')) return resolve(true);
-      const s = document.createElement('script');
-      s.id = 'rzp-sdk';
-      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      s.onload = () => resolve(true);
-      s.onerror = () => resolve(false);
-      document.body.appendChild(s);
-    });
 
-  const handleSubscribe = async (plan) => {
-    setProcessingPlan(plan.plan_name);
-    try {
-      const orderData = await subscriptionAPI.createOrder(plan.plan_name);
-
-      if (orderData.is_mock) {
-        const ok = window.confirm(
-          `[DEV MODE] Simulating payment for "${plan.plan_name}" (₹${plan.price}).\nClick OK to activate.`
-        );
-        if (!ok) { setProcessingPlan(null); return; }
-        const res = await subscriptionAPI.verifyPayment({
-          plan_name: plan.plan_name,
-          amount: plan.price,
-          duration_days: plan.duration_days,
-          razorpay_order_id: orderData.order_id,
-          razorpay_payment_id: `mock_pay_${Math.random().toString(36).substr(2, 8)}`,
-          razorpay_signature: 'mock_ok',
-        });
-        if (res.success) { await refreshAccessStatus(); setSaved(true); setTimeout(() => setSaved(false), 3000); }
-        return;
-      }
-
-      const loaded = await loadRazorpayScript();
-      if (!loaded) { alert('Could not load payment gateway.'); return; }
-
-      const options = {
-        key: orderData.key_id,
-        amount: Math.round(orderData.amount * 100),
-        currency: orderData.currency || 'INR',
-        name: 'MarketerAI SaaS',
-        description: `${plan.plan_name} Plan — ₹${Number(plan.price).toLocaleString('en-IN')} / ${plan.duration_days} days`,
-        order_id: orderData.order_id,
-        handler: async (response) => {
-          try {
-            const res = await subscriptionAPI.verifyPayment({
-              plan_name: plan.plan_name,
-              amount: plan.price,
-              duration_days: plan.duration_days,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            if (res.success) { await refreshAccessStatus(); setSaved(true); setTimeout(() => setSaved(false), 3000); }
-          } catch (e) { alert('Verification failed: ' + (e.response?.data?.detail || e.message)); }
-        },
-        prefill: { name: user?.full_name || '', email: user?.email || '' },
-        theme: { color: '#7c3aed' },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      alert('Order creation failed: ' + (err.response?.data?.detail || 'Server error.'));
-    } finally {
-      setProcessingPlan(null);
-    }
-  };
 
   const initials = user?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
@@ -556,7 +491,6 @@ const Settings = () => {
                       {plans.map((plan) => {
                         const isActive = accessStatus?.subscription_active &&
                           accessStatus?.subscription_plan === plan.plan_name;
-                        const isProcessing = processingPlan === plan.plan_name;
                         return (
                           <motion.div
                             key={plan.id}
@@ -586,20 +520,18 @@ const Settings = () => {
                               <span className="text-slate-400 text-xs">/ {plan.plan_name}</span>
                             </div>
                             <button
-                              onClick={() => handleSubscribe(plan)}
-                              disabled={!!processingPlan || isActive}
+                              onClick={() => navigate('/subscription')}
                               className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                                 isActive
                                   ? 'bg-violet-100 text-violet-600 cursor-default'
                                   : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-md shadow-violet-500/10'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                              }`}
+                              disabled={isActive}
                             >
-                              {isProcessing ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing...</>
-                              ) : isActive ? (
+                              {isActive ? (
                                 <><Check className="h-3.5 w-3.5" /> Current Plan</>
                               ) : (
-                                <><CreditCard className="h-3.5 w-3.5" /> Buy Now — ₹{Number(plan.price).toLocaleString('en-IN')}</>
+                                <><CreditCard className="h-3.5 w-3.5" /> Upgrade Plan</>
                               )}
                             </button>
                           </motion.div>

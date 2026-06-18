@@ -154,18 +154,18 @@ class AccessService:
                 razorpay_order_id, razorpay_payment_id, razorpay_signature, secret
             )
             if not is_valid:
-            # Record failed attempt for audit trail
-            failed_payment = Payment(
-                user_id=user_id,
-                amount=amount,
-                razorpay_order_id=razorpay_order_id,
-                razorpay_payment_id=razorpay_payment_id,
-                razorpay_signature=razorpay_signature,
-                status="failed"
-            )
-            db.add(failed_payment)
-            db.commit()
-            return {"success": False, "detail": "Payment signature verification failed. No plan was activated."}
+                # Record failed attempt for audit trail
+                failed_payment = Payment(
+                    user_id=user_id,
+                    amount=amount,
+                    razorpay_order_id=razorpay_order_id,
+                    razorpay_payment_id=razorpay_payment_id,
+                    razorpay_signature=razorpay_signature,
+                    status="failed"
+                )
+                db.add(failed_payment)
+                db.commit()
+                return {"success": False, "detail": "Payment signature verification failed. No plan was activated."}
 
         # Step 2: Idempotency check — prevent replay attacks / double-activation
         existing_payment = db.query(Payment).filter(

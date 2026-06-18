@@ -1133,76 +1133,20 @@ export const subscriptionAPI = {
   },
 
   createOrder: async (planName) => {
-    return executeWithFallback(
-      async () => {
-        const response = await api.post('/subscription/create-order', { plan_name: planName });
-        return response.data;
-      },
-      () => {
-        // Use cached plans from a prior getPlans() call if available, else fall back to defaults
-        const cachedPlans = getLocalData('mock_plans_public', []);
-        const matched = cachedPlans.find(p => p.plan_name === planName);
-        const fallbackPrices = { "15 Days": 299, "1 Month": 499, "3 Months": 1299, "6 Months": 2299, "1 Year": 3999 };
-        return {
-          success: true,
-          order_id: `mock_order_${Math.random().toString(36).substring(2, 14)}`,
-          amount: matched ? matched.price : (fallbackPrices[planName] || 499),
-          currency: 'INR',
-          key_id: 'dummy_key',
-          is_mock: true,
-        };
-      }
-    );
+    const response = await api.post('/subscription/create-order', { plan_name: planName });
+    return response.data;
   },
 
   verifyPayment: async (verificationData) => {
-    return executeWithFallback(
-      async () => {
-        const response = await api.post('/subscription/verify-payment', verificationData);
-        return response.data;
-      },
-      () => {
-        // Use duration_days passed by caller (from plan object), fall back to name-matching
-        const durationDays = verificationData.duration_days || ({
-          '15 Days': 15, '1 Month': 30, '3 Months': 90, '6 Months': 180, '1 Year': 365
-        }[verificationData.plan_name] || 30);
-
-        const now = new Date();
-        const expiry = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-        const mockSub = getLocalData('mock_subscription', {});
-        const updated = {
-          ...mockSub,
-          has_access: true,
-          trial_active: mockSub.trial_active || false,
-          subscription_active: true,
-          subscription_plan: verificationData.plan_name,
-          subscription_expiry: expiry.toISOString(),
-        };
-        setLocalData('mock_subscription', updated);
-        return {
-          success: true,
-          detail: 'Subscription activated successfully.',
-          plan_name: verificationData.plan_name,
-          expiry_date: expiry.toISOString(),
-          duration_days: durationDays,
-        };
-      }
-    );
+    const response = await api.post('/subscription/verify-payment', verificationData);
+    return response.data;
   },
 
   submitQRPayment: async (formData) => {
-    return executeWithFallback(
-      async () => {
-        // formData contains plan_name, razorpay_order_id, screenshot
-        const response = await api.post('/subscription/qr-payment', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        return response.data;
-      },
-      () => {
-        return { success: true, detail: "QR Payment submitted for verification (Mock)." };
-      }
-    );
+    const response = await api.post('/subscription/qr-payment', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   },
 
   getPlans: async () => {
@@ -1510,23 +1454,13 @@ export const adminAPI = {
   },
 
   approvePayment: async (id) => {
-    return executeWithFallback(
-      async () => {
-        const response = await api.post(`/admin/payments/${id}/approve`);
-        return response.data;
-      },
-      () => ({ success: true, detail: 'Payment approved (mock)' })
-    );
+    const response = await api.post(`/admin/payments/${id}/approve`);
+    return response.data;
   },
 
   rejectPayment: async (id) => {
-    return executeWithFallback(
-      async () => {
-        const response = await api.post(`/admin/payments/${id}/reject`);
-        return response.data;
-      },
-      () => ({ success: true, detail: 'Payment rejected (mock)' })
-    );
+    const response = await api.post(`/admin/payments/${id}/reject`);
+    return response.data;
   }
 };
 

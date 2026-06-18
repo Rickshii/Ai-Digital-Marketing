@@ -7,12 +7,14 @@ import {
   Check, CreditCard, Sparkles, ShieldCheck, Zap, AlertCircle,
   Loader2, Calendar, Clock
 } from 'lucide-react';
+import { useToast, ToastContainer } from '../components/Toast';
 
 const POPULAR_PLAN = "1 Month";
 
 const Subscription = () => {
   const { user, accessStatus, refreshAccessStatus } = useAuth();
   const navigate = useNavigate();
+  const { toasts, addToast, removeToast } = useToast();
 
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -28,6 +30,7 @@ const Subscription = () => {
         setPlans(data);
       } catch (err) {
         console.error('Failed to load plans', err);
+        addToast('Failed to load subscription plans. Please refresh.', 'error');
       } finally {
         setLoadingPlans(false);
       }
@@ -52,7 +55,10 @@ const Subscription = () => {
 
   const handleQRSubmit = async (e) => {
     e.preventDefault();
-    if (!qrFile || !transactionId) return alert('Please upload screenshot and enter transaction ID');
+    if (!qrFile || !transactionId) {
+      addToast('Please upload a payment screenshot and enter the Transaction ID.', 'info');
+      return;
+    }
     
     setProcessingPlan(paymentModal.plan.plan_name);
     try {
@@ -62,12 +68,12 @@ const Subscription = () => {
       formData.append('screenshot', qrFile);
 
       await subscriptionAPI.submitQRPayment(formData);
-      alert('Payment submitted for verification. Your plan will be activated once verified by admin.');
+      addToast('Payment submitted! Your plan will be activated once an admin verifies it.', 'success');
       setPaymentModal({ show: false, plan: null, method: null });
       setQrFile(null);
       setTransactionId('');
     } catch (err) {
-      alert('Failed to submit QR payment: ' + (err.response?.data?.detail || err.message));
+      addToast('Failed to submit QR payment: ' + (err.response?.data?.detail || err.message), 'error');
     } finally {
       setProcessingPlan(null);
     }
@@ -81,7 +87,7 @@ const Subscription = () => {
       // Live Razorpay flow
       const loaded = await loadRazorpayScript();
       if (!loaded) {
-        alert('Payment gateway could not be loaded. Please check your internet connection.');
+        addToast('Payment gateway could not be loaded. Please check your internet connection.', 'error');
         return;
       }
 
@@ -90,7 +96,7 @@ const Subscription = () => {
         amount: Math.round(orderData.amount * 100),
         currency: orderData.currency || 'INR',
         name: 'MarketerAI SaaS',
-        description: `${plan.plan_name} Plan \u2014 \u20b9${Number(plan.price).toLocaleString('en-IN')} / ${plan.duration_days} days`,
+        description: `${plan.plan_name} Plan — ₹${Number(plan.price).toLocaleString('en-IN')} / ${plan.duration_days} days`,
         order_id: orderData.order_id,
         handler: async (response) => {
           try {
@@ -104,10 +110,11 @@ const Subscription = () => {
             });
             if (verifyRes.success) {
               await refreshAccessStatus();
-              navigate('/dashboard');
+              addToast(`🎉 ${plan.plan_name} plan activated successfully!`, 'success');
+              setTimeout(() => navigate('/dashboard'), 1500);
             }
           } catch (err) {
-            alert('Payment verification failed: ' + (err.response?.data?.detail || 'Please contact support.'));
+            addToast('Payment verification failed: ' + (err.response?.data?.detail || 'Please contact support.'), 'error');
           }
         },
         prefill: { name: user?.full_name || '', email: user?.email || '' },
@@ -117,7 +124,7 @@ const Subscription = () => {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (err) {
-      alert('Could not create order: ' + (err.response?.data?.detail || 'Server error.'));
+      addToast('Could not create order: ' + (err.response?.data?.detail || 'Server error.'), 'error');
     } finally {
       setProcessingPlan(null);
       setPaymentModal({ show: false, plan: null, method: null });
@@ -128,6 +135,7 @@ const Subscription = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
 
       {/* Active Plan Status Card */}
       {accessStatus && (

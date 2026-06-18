@@ -434,6 +434,9 @@ def delete_plan(
     current_admin: UserModel = Depends(get_current_admin)
 ):
     """Delete a subscription plan."""
+    plan = db.query(PlanPrice).filter(PlanPrice.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
     db.delete(plan)
     db.commit()
     return None
@@ -465,9 +468,11 @@ def list_pending_payments(
         res.append({
             "id": p.id,
             "user_email": u.email if u else "Unknown",
+            "user_full_name": u.full_name if u else "Unknown",
+            "plan_name": p.plan_name,
             "amount": p.amount,
             "payment_proof": p.payment_proof,
-            "created_at": p.created_at,
+            "created_at": str(p.created_at),
             "razorpay_order_id": p.razorpay_order_id
         })
     return res

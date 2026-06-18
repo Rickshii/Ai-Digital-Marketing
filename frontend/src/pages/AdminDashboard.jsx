@@ -6,10 +6,12 @@ import {
   PlusCircle, DollarSign, Tag, Save
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
+import { useToast, ToastContainer } from '../components/Toast';
 
 const BLANK_PLAN = { plan_name: '', price: '', duration_days: '', description: '' };
 
 const AdminDashboard = () => {
+  const { toasts, addToast, removeToast } = useToast();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
@@ -61,8 +63,9 @@ const AdminDashboard = () => {
     try {
       await adminAPI.approvePayment(id);
       setPendingPayments(prev => prev.filter(p => p.id !== id));
+      addToast('Payment approved and subscription activated.', 'success');
     } catch(err) {
-      alert(err.response?.data?.detail || "Failed to approve payment");
+      addToast(err.response?.data?.detail || 'Failed to approve payment.', 'error');
     }
   };
 
@@ -71,8 +74,9 @@ const AdminDashboard = () => {
     try {
       await adminAPI.rejectPayment(id);
       setPendingPayments(prev => prev.filter(p => p.id !== id));
+      addToast('Payment rejected.', 'info');
     } catch(err) {
-      alert(err.response?.data?.detail || "Failed to reject payment");
+      addToast(err.response?.data?.detail || 'Failed to reject payment.', 'error');
     }
   };
 
@@ -83,10 +87,10 @@ const AdminDashboard = () => {
     fd.append("file", platformQRFile);
     try {
       await adminAPI.uploadPlatformQR(fd);
-      alert("Platform QR Uploaded Successfully");
+      addToast('Platform QR code uploaded successfully.', 'success');
       setPlatformQRFile(null);
     } catch(err) {
-      alert("Failed to upload QR");
+      addToast('Failed to upload QR code.', 'error');
     }
   };
 
@@ -152,8 +156,9 @@ const AdminDashboard = () => {
     try {
       await adminAPI.deletePlan(planId);
       setPlans(prev => prev.filter(p => p.id !== planId));
+      addToast('Plan deleted successfully.', 'success');
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to delete plan.');
+      addToast(err.response?.data?.detail || 'Failed to delete plan.', 'error');
     }
   };
 
@@ -191,11 +196,11 @@ const AdminDashboard = () => {
         await adminAPI.deleteUser(userId);
         setUsers(prev => prev.filter(u => u.id !== userId));
         if (previewUser && previewUser.id === userId) setPreviewUser(null);
-        // Refresh stats
         const statsData = await adminAPI.getStats();
         setStats(statsData);
+        addToast('User deleted successfully.', 'success');
       } catch (err) {
-        alert(err.response?.data?.detail || 'Failed to delete user.');
+        addToast(err.response?.data?.detail || 'Failed to delete user.', 'error');
       }
     }
   };
@@ -205,12 +210,12 @@ const AdminDashboard = () => {
       try {
         await adminAPI.deleteReport(reportId);
         setReports(prev => prev.filter(r => r.id !== reportId));
-        // Refresh stats
         const statsData = await adminAPI.getStats();
         setStats(statsData);
+        addToast('Report deleted successfully.', 'success');
       } catch (err) {
         console.error('Failed to delete report:', err);
-        alert('Failed to delete report.');
+        addToast('Failed to delete report.', 'error');
       }
     }
   };
@@ -248,7 +253,7 @@ const AdminDashboard = () => {
         setPreviewUser(prev => ({ ...prev, ...updatePayload }));
       }
       setEditUser(null);
-      alert('User details updated successfully.');
+      addToast('User account updated successfully.', 'success');
     } catch (err) {
       setEditFormError(err.response?.data?.detail || 'Failed to update user account details.');
     } finally {
@@ -261,7 +266,7 @@ const AdminDashboard = () => {
       const detailedUser = await adminAPI.previewUser(userId);
       setPreviewUser(detailedUser);
     } catch (err) {
-      alert('Failed to retrieve detailed user profile: ' + (err.response?.data?.detail || err.message));
+      addToast('Failed to retrieve user profile: ' + (err.response?.data?.detail || err.message), 'error');
     }
   };
 
@@ -319,6 +324,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
@@ -774,8 +780,8 @@ const AdminDashboard = () => {
                             <tr key={pay.id} className="hover:bg-slate-50/50 transition-colors">
                               <td className="p-4 text-slate-500 font-mono">#{pay.id}</td>
                               <td className="p-4">
-                                <span className="block font-bold text-slate-800">{pay.user?.full_name}</span>
-                                <span className="text-[10px] text-slate-400">{pay.user?.email}</span>
+                                <span className="block font-bold text-slate-800">{pay.user_full_name || pay.user_email || 'N/A'}</span>
+                                <span className="text-[10px] text-slate-400">{pay.user_email}</span>
                               </td>
                               <td className="p-4 font-bold text-indigo-600">{pay.plan_name || 'N/A'}</td>
                               <td className="p-4 font-black text-slate-800">₹{pay.amount}</td>
