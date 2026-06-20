@@ -200,21 +200,11 @@ const initMockDB = () => {
   ]);
 };
 
-initMockDB();
+// initMockDB();
 
 // Helper to determine if we should fall back to mock
 const executeWithFallback = async (apiCall, mockHandler) => {
-  try {
-    const response = await apiCall();
-    return response;
-  } catch (error) {
-    // If connection refused, network error, timeout, or 404
-    if (!error.response || error.code === 'ERR_NETWORK' || error.response.status === 404 || error.response.status >= 500) {
-      console.warn('API connection failed or unavailable. Falling back to local storage mock database.', error.message);
-      return mockHandler();
-    }
-    throw error;
-  }
+  return await apiCall();
 };
 
 // API Services Export

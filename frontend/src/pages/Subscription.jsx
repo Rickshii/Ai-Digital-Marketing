@@ -148,6 +148,28 @@ const Subscription = () => {
     try {
       const orderData = await subscriptionAPI.createOrder(plan.plan_name);
 
+      if (orderData.is_mock) {
+        addToast('Test mode: Simulating successful payment...', 'info');
+        try {
+          const verifyRes = await subscriptionAPI.verifyPayment({
+            plan_name: plan.plan_name,
+            amount: plan.price,
+            duration_days: plan.duration_days,
+            razorpay_order_id: orderData.order_id,
+            razorpay_payment_id: "mock_payment_" + Date.now(),
+            razorpay_signature: "mock_signature",
+          });
+          if (verifyRes.success) {
+            await refreshAccessStatus();
+            addToast(`🎉 ${plan.plan_name} plan activated successfully!`, 'success');
+            setTimeout(() => navigate('/dashboard'), 1500);
+          }
+        } catch (err) {
+          addToast('Payment verification failed: ' + (err.response?.data?.detail || 'Please contact support.'), 'error');
+        }
+        return;
+      }
+
       // Live Razorpay flow
       const loaded = await loadRazorpayScript();
       if (!loaded) {

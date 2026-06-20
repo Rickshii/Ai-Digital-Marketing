@@ -482,21 +482,23 @@ def upload_platform_qr(
     db: Session = Depends(get_db),
     current_admin: UserModel = Depends(get_current_admin)
 ):
-    """Upload the central UPI/QR code image and persist its URL or Base64 in the database."""
-    import base64
+    """Upload the central UPI/QR code image and persist its URL in the database."""
+    import shutil
+    import uuid
+    import os
     
-    file_content = file.file.read()
+    os.makedirs("uploads", exist_ok=True)
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
-    mime_type = "image/jpeg" if ext in ["jpg", "jpeg"] else "image/png"
-    if ext == "svg":
-        mime_type = "image/svg+xml"
+    filename = f"platform_qr_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join("uploads", filename)
     
-    base64_encoded = base64.b64encode(file_content).decode("utf-8")
-    data_uri = f"data:{mime_type};base64,{base64_encoded}"
-    
-    _set_setting(db, "qr_image_url", data_uri)
-    print("[Admin] QR code uploaded and saved to DB as base64")
-    return {"success": True, "qr_image_url": data_uri}
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    url = f"/uploads/{filename}"
+    _set_setting(db, "qr_image_url", url)
+    print(f"[Admin] QR code uploaded and saved to DB as {url}")
+    return {"success": True, "qr_image_url": url}
 
 @router.get("/payments/pending")
 def list_pending_payments(
