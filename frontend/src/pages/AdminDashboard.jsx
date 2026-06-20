@@ -50,6 +50,9 @@ const AdminDashboard = () => {
 
   const buildQRSrc = (url, ts) => {
     if (!url) return null;
+    if (url.startsWith('data:')) {
+      return url;
+    }
     if (url.startsWith('http://') || url.startsWith('https://')) {
       const sep = url.includes('?') ? '&' : '?';
       return `${url}${sep}v=${ts}`;

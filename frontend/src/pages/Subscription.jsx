@@ -199,6 +199,9 @@ const Subscription = () => {
 
   const buildQRSrc = (url, ts) => {
     if (!url) return null;
+    if (url.startsWith('data:')) {
+      return url;
+    }
     if (url.startsWith('http://') || url.startsWith('https://')) {
       // Absolute URL (Supabase storage, CDN) — append cache-buster as query param
       const sep = url.includes('?') ? '&' : '?';
