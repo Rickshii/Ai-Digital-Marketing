@@ -62,7 +62,12 @@ export const AuthProvider = ({ children }) => {
 
       return data.user;
     } catch (err) {
-      const errMsg = err.response?.data?.detail || "Invalid credentials. Please check your inputs.";
+      let errMsg = "Invalid credentials. Please check your inputs.";
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        errMsg = "Cannot connect to the server. Please ensure the backend is running on port 8000.";
+      } else if (err.response?.data?.detail) {
+        errMsg = err.response.data.detail;
+      }
       setError(errMsg);
       throw new Error(errMsg, { cause: err });
     } finally {
