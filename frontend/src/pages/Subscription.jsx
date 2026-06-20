@@ -503,17 +503,17 @@ const Subscription = () => {
                       required 
                       type="file" 
                       accept="image/*"
-                      onChange={e => setQrFile(e.target.files[0])}
+                      onChange={handleQRFileChange}
                       className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
                     />
                   </div>
                   
                   <button
                     type="submit"
-                    disabled={!!processingPlan}
+                    disabled={!!processingPlan || detectingTxn}
                     className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
                   >
-                    {processingPlan ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</> : <><Check className="h-4 w-4" /> Submit Payment</>}
+                    {processingPlan || detectingTxn ? <><Loader2 className="h-4 w-4 animate-spin" /> {detectingTxn ? 'Analyzing Image...' : 'Submitting...'}</> : <><Check className="h-4 w-4" /> Submit Payment</>}
                   </button>
                 </form>
               )}
@@ -521,6 +521,19 @@ const Subscription = () => {
           </motion.div>
         </div>
       )}
+    </div>
+  );
+};
+
+const RazorpayLoader = ({ plan, onTrigger }) => {
+  useEffect(() => {
+    onTrigger(plan);
+  }, [plan, onTrigger]);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-10 space-y-4">
+      <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      <p className="text-sm font-medium text-slate-600">Opening Razorpay checkout gateway...</p>
     </div>
   );
 };
