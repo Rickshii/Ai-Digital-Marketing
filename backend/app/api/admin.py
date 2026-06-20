@@ -526,15 +526,13 @@ def approve_payment(
     if payment.status != "pending_verification":
         raise HTTPException(status_code=400, detail="Payment is not pending verification")
 
-    payment.status = "success"
-    
     # Activate subscription
     if payment.plan_name:
         from app.models.subscription import PlanPrice
         from app.services.access_service import AccessService
         plan = db.query(PlanPrice).filter(PlanPrice.plan_name == payment.plan_name).first()
         if plan:
-            AccessService.process_payment_and_subscription(
+            result = AccessService.process_payment_and_subscription(
                 db=db,
                 user_id=payment.user_id,
                 plan_name=payment.plan_name,
@@ -545,6 +543,10 @@ def approve_payment(
                 duration_days=plan.duration_days,
                 skip_signature_verification=True
             )
+            if not result.get("success"):
+                raise HTTPException(status_code=400, detail=result.get("detail", "Failed to activate plan"))
+    else:
+        payment.status = "success"
             
     db.commit()
     return {"success": True, "detail": "Payment approved and subscription activated."}

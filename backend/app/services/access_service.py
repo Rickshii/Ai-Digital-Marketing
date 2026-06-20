@@ -155,36 +155,55 @@ class AccessService:
             )
             if not is_valid:
                 # Record failed attempt for audit trail
-                failed_payment = Payment(
-                    user_id=user_id,
-                    amount=amount,
-                    razorpay_order_id=razorpay_order_id,
-                    razorpay_payment_id=razorpay_payment_id,
-                    razorpay_signature=razorpay_signature,
-                    status="failed"
-                )
-                db.add(failed_payment)
+                existing_failed = db.query(Payment).filter(Payment.razorpay_order_id == razorpay_order_id).first()
+                if existing_failed:
+                    existing_failed.status = "failed"
+                    existing_failed.razorpay_payment_id = razorpay_payment_id
+                    existing_failed.razorpay_signature = razorpay_signature
+                else:
+                    failed_payment = Payment(
+                        user_id=user_id,
+                        amount=amount,
+                        razorpay_order_id=razorpay_order_id,
+                        razorpay_payment_id=razorpay_payment_id,
+                        razorpay_signature=razorpay_signature,
+                        plan_name=plan_name,
+                        payment_method="razorpay",
+                        status="failed"
+                    )
+                    db.add(failed_payment)
                 db.commit()
                 return {"success": False, "detail": "Payment signature verification failed. No plan was activated."}
 
-        # Step 2: Idempotency check — prevent replay attacks / double-activation
+        # Step 2: Idempotency / Update check — prevent duplicate entries / double-activation
         existing_payment = db.query(Payment).filter(
-            Payment.razorpay_order_id == razorpay_order_id,
-            Payment.status == "success"
+            Payment.razorpay_order_id == razorpay_order_id
         ).first()
+        
         if existing_payment:
-            return {"success": True, "detail": "Payment already processed. Subscription is active."}
-
-        # Step 3: Record the successful payment
-        payment = Payment(
-            user_id=user_id,
-            amount=amount,
-            razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=razorpay_payment_id,
-            razorpay_signature=razorpay_signature,
-            status="success"
-        )
-        db.add(payment)
+            if existing_payment.status == "success":
+                return {"success": True, "detail": "Payment already processed. Subscription is active."}
+            else:
+                # Update the existing pending/failed payment to success
+                existing_payment.status = "success"
+                existing_payment.razorpay_payment_id = razorpay_payment_id
+                existing_payment.razorpay_signature = razorpay_signature
+                existing_payment.plan_name = plan_name
+                existing_payment.payment_method = "qr" if skip_signature_verification else "razorpay"
+                payment = existing_payment
+        else:
+            # Step 3: Record the successful payment
+            payment = Payment(
+                user_id=user_id,
+                amount=amount,
+                razorpay_order_id=razorpay_order_id,
+                razorpay_payment_id=razorpay_payment_id,
+                razorpay_signature=razorpay_signature,
+                plan_name=plan_name,
+                payment_method="qr" if skip_signature_verification else "razorpay",
+                status="success"
+            )
+            db.add(payment)
 
         # Step 4: Resolve duration — use passed value if available, otherwise match plan name
         if not duration_days:

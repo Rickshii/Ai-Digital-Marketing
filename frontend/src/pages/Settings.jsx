@@ -8,7 +8,9 @@ import {
   Mail, Phone, Building, MapPin, Lock, Key, Eye, EyeOff,
   Calendar, Clock, AlertCircle, Loader2, Check, ShieldCheck
 } from 'lucide-react';
-import { businessAPI, subscriptionAPI } from '../services/api';
+import { authAPI, businessAPI, subscriptionAPI } from '../services/api';
+
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api$/, '');
 
 const sections = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -42,7 +44,28 @@ const integrations = [
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, accessStatus, refreshAccessStatus } = useAuth();
+  const { user, accessStatus, refreshAccessStatus, updateUser } = useAuth();
+  const avatarInputRef = React.useRef(null);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await authAPI.uploadAvatar(formData);
+      if (res.avatar_url) {
+        updateUser({ ...user, avatar_url: res.avatar_url });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to upload avatar", err);
+    }
+  };
+
   const [section, setSection] = useState('profile');
   const [saved, setSaved] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -131,6 +154,11 @@ const Settings = () => {
   const handleSave = async () => {
     if (section === 'profile') {
       try {
+        const updatedUser = await authAPI.updateProfile({
+          full_name: profileForm.full_name
+        });
+        updateUser(updatedUser);
+
         if (businessProfile) {
           await businessAPI.updateProfile(businessProfile.id, {
             contact_number: profileForm.phone,
@@ -203,13 +231,33 @@ const Settings = () => {
                 </div>
                 {/* Avatar */}
                 <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xl font-extrabold shadow-lg">
-                    {initials}
-                  </div>
+                  <input
+                    type="file"
+                    ref={avatarInputRef}
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url.startsWith('data:') || user.avatar_url.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                      alt={user.full_name || 'User'}
+                      className="h-16 w-16 rounded-2xl object-cover shadow-lg border border-slate-100"
+                    />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xl font-extrabold shadow-lg">
+                      {initials}
+                    </div>
+                  )}
                   <div>
                     <p className="text-base font-bold text-slate-800">{user?.full_name}</p>
                     <p className="text-sm text-slate-500">{user?.role || 'Marketing Consultant'}</p>
-                    <button className="mt-1 text-xs text-violet-600 font-semibold hover:underline">Change Avatar</button>
+                    <button
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="mt-1 text-xs text-violet-600 font-semibold hover:underline"
+                    >
+                      Change Avatar
+                    </button>
                   </div>
                 </div>
                 {/* Fields */}

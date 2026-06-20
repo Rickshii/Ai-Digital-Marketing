@@ -25,6 +25,7 @@ const Subscription = () => {
   const [transactionId, setTransactionId] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState(null);  // dynamic from DB
   const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster
+  const [detectingTxn, setDetectingTxn] = useState(false);
   const razorpayTriggeredRef = useRef(false); // prevents duplicate Razorpay launches
 
   const fetchInitialData = useCallback(async (isRefresh = false) => {
@@ -86,6 +87,34 @@ const Subscription = () => {
 
   const openPaymentModal = (plan) => {
     setPaymentModal({ show: true, plan, method: null });
+    setQrTimestamp(Date.now()); // force cache-busting on modal open
+  };
+
+  const handleQRFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setQrFile(file);
+    
+    // Automatic OCR detection
+    setDetectingTxn(true);
+    addToast('Analyzing screenshot for Transaction ID / UTR...', 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await subscriptionAPI.detectTransaction(formData);
+      if (res.success && res.transaction_id) {
+        setTransactionId(res.transaction_id);
+        addToast(`✅ Detected and autofilled Transaction ID: ${res.transaction_id}`, 'success');
+      } else {
+        addToast(res.detail || 'Could not auto-detect Transaction ID. Please enter it manually.', 'warning');
+      }
+    } catch (err) {
+      console.error('[OCR] Error detecting transaction ID:', err);
+      addToast('Failed to auto-detect Transaction ID. Please enter it manually.', 'warning');
+    } finally {
+      setDetectingTxn(false);
+    }
   };
 
   const handleQRSubmit = async (e) => {

@@ -232,3 +232,96 @@ def submit_qr_payment(
 
     return {"success": True, "detail": "Payment submitted for verification."}
 
+
+def run_ocr_on_file(image_path: str) -> str:
+    import subprocess
+    import os
+    
+    abs_path = os.path.abspath(image_path)
+    ps_script = f"""
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+try {{
+    $el = [Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+    $el = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType = WindowsRuntime]
+    $el = [Windows.Media.Ocr.OcrEngine, Windows.Media.Ocr, ContentType = WindowsRuntime]
+
+    $file = [Windows.Storage.StorageFile]::GetFileFromPathAsync("{abs_path}").GetResults()
+    $stream = $file.OpenAsync([Windows.Storage.FileAccessMode]::Read).GetResults()
+    $decoder = [Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream).GetResults()
+    $bitmap = $decoder.GetSoftwareBitmapAsync().GetResults()
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+    $result = $engine.RecognizeAsync($bitmap).GetResults()
+    Write-Output $result.Text
+}} catch {{
+    Write-Error $_.Exception.Message
+}}
+"""
+    temp_ps1 = os.path.join(os.path.dirname(abs_path), f"ocr_{os.path.basename(abs_path)}.ps1")
+    try:
+        with open(temp_ps1, "w", encoding="utf-8") as f:
+            f.write(ps_script)
+        res = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", temp_ps1], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            return res.stdout.strip()
+        else:
+            print(f"[OCR] PowerShell error: {res.stderr}")
+            return ""
+    except Exception as e:
+        print(f"[OCR] Subprocess exception: {e}")
+        return ""
+    finally:
+        if os.path.exists(temp_ps1):
+            try:
+                os.remove(temp_ps1)
+            except:
+                pass
+
+@router.post("/detect-transaction")
+def detect_transaction(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    import shutil
+    import uuid
+    import re
+    
+    os.makedirs("uploads/temp", exist_ok=True)
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    temp_filename = f"temp_{uuid.uuid4().hex}.{ext}"
+    temp_filepath = os.path.join("uploads/temp", temp_filename)
+    
+    try:
+        with open(temp_filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        text = run_ocr_on_file(temp_filepath)
+        print(f"[OCR] Detected text: {text}")
+        
+        # Regex to find UPI UTR / Transaction ID (12-digit number)
+        utr_match = re.search(r"\b\d{12}\b", text)
+        if utr_match:
+            return {"success": True, "transaction_id": utr_match.group(0), "text": text}
+            
+        # Fallback to other transaction ID patterns (e.g. 9-16 digits or alphanumeric transaction IDs)
+        # Search for labels like txn id, trans id, reference no etc.
+        txn_ref_match = re.search(r"(?:txn|transaction|ref|utr|payment|transfer|reference)\s*(?:id|no|number|ref)?\s*[:#-]?\s*([a-zA-Z0-9]{8,16})", text, re.IGNORECASE)
+        if txn_ref_match:
+            return {"success": True, "transaction_id": txn_ref_match.group(1), "text": text}
+            
+        # Look for any 9 to 16 digit number as a fallback
+        any_num_match = re.search(r"\b\d{9,16}\b", text)
+        if any_num_match:
+            return {"success": True, "transaction_id": any_num_match.group(0), "text": text}
+            
+        return {"success": False, "transaction_id": "", "detail": "Could not find a valid Transaction ID in the screenshot.", "text": text}
+    except Exception as e:
+        print(f"[OCR] Error during OCR: {e}")
+        return {"success": False, "transaction_id": "", "detail": f"OCR extraction error: {str(e)}"}
+    finally:
+        if os.path.exists(temp_filepath):
+            try:
+                os.remove(temp_filepath)
+            except:
+                pass
+

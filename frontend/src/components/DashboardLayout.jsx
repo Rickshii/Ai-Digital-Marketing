@@ -7,7 +7,7 @@ import {
   Megaphone, FileText, Settings, LogOut, Menu, X,
   Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield, AlertCircle
 } from 'lucide-react';
-
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api$/, '');
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, color: 'from-violet-500 to-purple-600' },
@@ -127,9 +127,17 @@ const DashboardLayout = ({ children }) => {
         {/* User Profile */}
         <div className="px-4 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-sm font-bold shadow">
-              {initials}
-            </div>
+            {user?.avatar_url ? (
+              <img
+                src={user.avatar_url.startsWith('data:') || user.avatar_url.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                alt={user.full_name || 'User'}
+                className="h-10 w-10 rounded-full object-cover shadow border border-slate-100"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-sm font-bold shadow">
+                {initials}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-slate-800 truncate">{user?.full_name || 'Guest'}</p>
               <p className="text-xs text-slate-400 truncate">{user?.role || 'Marketing Consultant'}</p>
@@ -339,9 +347,17 @@ const DashboardLayout = ({ children }) => {
                 }}
                 className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5 hover:bg-slate-50 transition-all"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xs font-bold">
-                  {initials}
-                </div>
+                {user?.avatar_url ? (
+                  <img
+                    src={user.avatar_url.startsWith('data:') || user.avatar_url.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                    alt={user.full_name || 'User'}
+                    className="h-7 w-7 rounded-full object-cover border border-slate-100"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-xs font-bold">
+                    {initials}
+                  </div>
+                )}
                 <span className="hidden md:block text-sm font-medium text-slate-700 max-w-[120px] truncate">{user?.full_name}</span>
                 <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${profileDropdown ? 'rotate-180' : ''}`} />
               </button>
@@ -441,9 +457,17 @@ const DashboardLayout = ({ children }) => {
 
               <div className="px-4 py-4">
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-sm font-bold">
-                    {initials}
-                  </div>
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url.startsWith('data:') || user.avatar_url.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                      alt={user.full_name || 'User'}
+                      className="h-10 w-10 rounded-full object-cover border border-slate-100"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white text-sm font-bold">
+                      {initials}
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{user?.full_name}</p>
                     <p className="text-xs text-slate-400">{user?.role || 'Consultant'}</p>

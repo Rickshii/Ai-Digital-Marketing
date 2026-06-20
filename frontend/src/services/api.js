@@ -363,6 +363,70 @@ export const authAPI = {
       }
     );
   },
+
+  updateProfile: async (profileData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.put('/auth/profile', profileData);
+        return response.data;
+      },
+      () => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          const updated = { ...user, ...profileData };
+          localStorage.setItem('user', JSON.stringify(updated));
+          
+          const users = getLocalData('mock_users', []);
+          const idx = users.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+          if (idx !== -1) {
+            users[idx] = { ...users[idx], ...profileData };
+            setLocalData('mock_users', users);
+          }
+          return updated;
+        }
+        throw new Error('Not logged in');
+      }
+    );
+  },
+
+  uploadAvatar: async (formData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/auth/profile/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+      },
+      () => {
+        const file = formData.get('file');
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result;
+            const storedUser = localStorage.getItem('user');
+            if (storedUser) {
+              const user = JSON.parse(storedUser);
+              const updated = { ...user, avatar_url: dataUrl };
+              localStorage.setItem('user', JSON.stringify(updated));
+              
+              const users = getLocalData('mock_users', []);
+              const idx = users.findIndex(u => u.email.toLowerCase() === user.email.toLowerCase());
+              if (idx !== -1) {
+                users[idx] = { ...users[idx], avatar_url: dataUrl };
+                setLocalData('mock_users', users);
+              }
+              resolve({ success: true, avatar_url: dataUrl });
+            } else {
+              reject(new Error('Not logged in'));
+            }
+          };
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsDataURL(file);
+        });
+      }
+    );
+  },
 };
 
 export const businessAPI = {
@@ -1147,6 +1211,29 @@ export const subscriptionAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
+  },
+
+  detectTransaction: async (formData) => {
+    return executeWithFallback(
+      async () => {
+        const response = await api.post('/subscription/detect-transaction', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+      },
+      () => {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            const randomUTR = Math.floor(100000000000 + Math.random() * 900000000000).toString();
+            resolve({
+              success: true,
+              transaction_id: randomUTR,
+              detail: "Simulated UTR detection (Local Fallback)"
+            });
+          }, 1000);
+        });
+      }
+    );
   },
 
   getPlans: async () => {

@@ -136,3 +136,49 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user.hashed_password = get_password_hash(body.new_password)
     db.commit()
     return {"detail": "Password has been reset successfully. You can now log in with your new password."}
+
+
+from fastapi import UploadFile, File
+from typing import Optional
+import shutil
+import os
+import uuid
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+@router.put("/profile", response_model=UserSchema)
+def update_profile(
+    body: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    if body.full_name is not None:
+        current_user.full_name = body.full_name
+    if body.avatar_url is not None:
+        current_user.avatar_url = body.avatar_url
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/profile/avatar")
+def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    os.makedirs("uploads/avatars", exist_ok=True)
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = os.path.join("uploads/avatars", filename)
+    
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    avatar_url = f"/uploads/avatars/{filename}"
+    current_user.avatar_url = avatar_url
+    db.commit()
+    db.refresh(current_user)
+    
+    return {"success": True, "avatar_url": avatar_url}

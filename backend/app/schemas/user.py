@@ -6,6 +6,7 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     role: Optional[str] = "user"
+    avatar_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
@@ -13,6 +14,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     password: Optional[str] = None
 
 class UserInDBBase(UserBase):

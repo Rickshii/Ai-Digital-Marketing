@@ -62,6 +62,14 @@ def upgrade_db_schema():
                 db.execute(text("ALTER TABLE payments ADD COLUMN plan_name VARCHAR(100)"))
                 db.commit()
 
+        # Migrate users
+        if 'users' in inspector.get_table_names():
+            user_cols = [col['name'] for col in inspector.get_columns('users')]
+            if 'avatar_url' not in user_cols:
+                db.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"))
+                db.commit()
+                print("Added column avatar_url of type VARCHAR(500) to users.")
+
     except Exception as e:
         db.rollback()
         print(f"Error checking/migrating schema: {e}")
