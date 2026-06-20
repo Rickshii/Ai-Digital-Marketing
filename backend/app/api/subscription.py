@@ -8,7 +8,7 @@ import uuid
 from app.core.database import get_db
 from app.api.auth import get_current_user
 from app.models.user import User as UserModel
-from app.models.subscription import PlanPrice
+from app.models.subscription import PlanPrice, PlatformSettings
 from app.services.access_service import AccessService
 
 router = APIRouter(prefix="/subscription", tags=["Subscription and Payments"])
@@ -43,6 +43,16 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_signature: str
 
 
+# ── Public endpoint: returns platform QR URL (no auth, called by checkout modal) ─
+@router.get("/qr-url")
+def get_qr_url(db: Session = Depends(get_db)):
+    """Returns the admin-configured QR code URL for the checkout payment modal."""
+    row = db.query(PlatformSettings).filter(PlatformSettings.key == "qr_image_url").first()
+    url = row.value if row else None
+    print(f"[Subscription] GET /qr-url -> {url}")
+    return {"qr_image_url": url}
+
+
 # ── Public endpoint: no auth required, used by the subscription page ─────────
 @router.get("/plans", response_model=List[Dict[str, Any]])
 def list_public_plans(db: Session = Depends(get_db)):
@@ -50,6 +60,7 @@ def list_public_plans(db: Session = Depends(get_db)):
     db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
     if not db_plans:
         # Seed defaults to DB to guarantee there are plans in PostgreSQL
+        print("[Subscription] No plans found in DB - seeding defaults.")
         for p in [
             {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
             {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
@@ -60,7 +71,8 @@ def list_public_plans(db: Session = Depends(get_db)):
             db.add(PlanPrice(**p))
         db.commit()
         db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
-        
+
+    print(f"[Subscription] GET /plans -> returning {len(db_plans)} plans from DB")
     return [
         {
             "id": p.id,

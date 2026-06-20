@@ -44,6 +44,8 @@ const AdminDashboard = () => {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [platformQRFile, setPlatformQRFile] = useState(null);
+  const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster after upload
+  const [currentQRUrl, setCurrentQRUrl] = useState(null);    // URL from DB
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace('/api', '');
 
   const fetchPendingPayments = async () => {
@@ -86,11 +88,16 @@ const AdminDashboard = () => {
     const fd = new FormData();
     fd.append("file", platformQRFile);
     try {
-      await adminAPI.uploadPlatformQR(fd);
-      addToast('Platform QR code uploaded successfully.', 'success');
+      const result = await adminAPI.uploadPlatformQR(fd);
+      const newUrl = result.qr_image_url || result.url || '/uploads/platform_qr.png';
+      setCurrentQRUrl(newUrl);
+      setQrTimestamp(Date.now()); // force image cache bust
+      addToast('Platform QR code uploaded and saved successfully.', 'success');
       setPlatformQRFile(null);
+      console.log('[AdminDashboard] QR uploaded, new URL:', newUrl);
     } catch(err) {
-      addToast('Failed to upload QR code.', 'error');
+      console.error('[AdminDashboard] QR upload failed:', err);
+      addToast('Failed to upload QR code: ' + (err.response?.data?.detail || err.message), 'error');
     }
   };
 
@@ -124,7 +131,10 @@ const AdminDashboard = () => {
       setPlans(prev => [...prev, created]);
       setNewPlan(BLANK_PLAN);
       setShowNewPlanForm(false);
+      addToast(`Plan "${created.plan_name}" created successfully. It is now live on the Subscription page.`, 'success');
+      console.log('[AdminDashboard] Plan created:', created);
     } catch (err) {
+      console.error('[AdminDashboard] Create plan error:', err);
       setPlanError(err.response?.data?.detail || 'Failed to create plan.');
     } finally {
       setPlanSaving(false);
@@ -144,7 +154,10 @@ const AdminDashboard = () => {
       });
       setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditingPlan(null);
+      addToast(`Plan "${updated.plan_name}" updated successfully. Changes are live on the Subscription page.`, 'success');
+      console.log('[AdminDashboard] Plan updated:', updated);
     } catch (err) {
+      console.error('[AdminDashboard] Update plan error:', err);
       setPlanError(err.response?.data?.detail || 'Failed to update plan.');
     } finally {
       setPlanSaving(false);
@@ -187,7 +200,16 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (activeTab === 'plans') fetchPlans();
-    if (activeTab === 'payments') fetchPendingPayments();
+    if (activeTab === 'payments') {
+      fetchPendingPayments();
+      // Load current QR URL from DB when switching to payments tab
+      adminAPI.getQRUrl().then(url => {
+        if (url) {
+          setCurrentQRUrl(url);
+          console.log('[AdminDashboard] Loaded current QR URL:', url);
+        }
+      }).catch(err => console.error('[AdminDashboard] Failed to load QR URL:', err));
+    }
   }, [activeTab]);
 
   const handleDeleteUser = async (userId) => {
@@ -737,21 +759,42 @@ const AdminDashboard = () => {
               <motion.div key="payments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
                   <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-4"><CreditCard className="h-5 w-5 text-indigo-500" /> Platform QR Management</h3>
-                  <form onSubmit={handleUploadQR} className="flex items-end gap-4 max-w-md">
-                    <div className="flex-1 space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload New QR Code</label>
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={e => setPlatformQRFile(e.target.files[0])}
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
-                      />
+                  <div className="flex flex-col sm:flex-row gap-6 items-start">
+                    {/* QR Preview */}
+                    <div className="flex-shrink-0 text-center">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Current QR Code</p>
+                      {currentQRUrl ? (
+                        <img
+                          key={qrTimestamp}
+                          src={`${API_BASE}${currentQRUrl}?v=${qrTimestamp}`}
+                          alt="Current Platform QR"
+                          className="w-36 h-36 border-4 border-white rounded-xl shadow-md object-contain bg-white"
+                          onLoad={() => console.log('[AdminDashboard] QR preview loaded')}
+                          onError={(e) => { e.target.src = 'https://placehold.co/144x144?text=Not+Set'; }}
+                        />
+                      ) : (
+                        <div className="w-36 h-36 border-4 border-dashed border-slate-200 rounded-xl flex items-center justify-center bg-white">
+                          <p className="text-[10px] text-slate-400 font-semibold text-center px-2">No QR uploaded yet</p>
+                        </div>
+                      )}
                     </div>
-                    <button type="submit" disabled={!platformQRFile} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all">
-                      Save QR
-                    </button>
-                  </form>
-                  <p className="text-[10px] text-slate-400 mt-3">Current QR is visible at <a href={`${API_BASE}/uploads/platform_qr.png`} target="_blank" className="text-indigo-500 underline">/uploads/platform_qr.png</a></p>
+                    {/* Upload Form */}
+                    <form onSubmit={handleUploadQR} className="flex-1 space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload New QR Code</label>
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          onChange={e => setPlatformQRFile(e.target.files[0])}
+                          className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" 
+                        />
+                      </div>
+                      <button type="submit" disabled={!platformQRFile} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                        Save QR Code
+                      </button>
+                      <p className="text-[10px] text-slate-400">After uploading, the new QR will appear instantly in the user checkout modal.</p>
+                    </form>
+                  </div>
                 </div>
 
                 <div className="space-y-4">

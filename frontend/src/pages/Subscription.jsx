@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { subscriptionAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, CreditCard, Sparkles, ShieldCheck, Zap, AlertCircle,
-  Loader2, Calendar, Clock
+  Loader2, Calendar, Clock, RefreshCw
 } from 'lucide-react';
 import { useToast, ToastContainer } from '../components/Toast';
 
@@ -18,25 +18,60 @@ const Subscription = () => {
 
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [refreshingPlans, setRefreshingPlans] = useState(false);
   const [processingPlan, setProcessingPlan] = useState(null); // which plan is being processed
   const [paymentModal, setPaymentModal] = useState({ show: false, plan: null, method: null });
   const [qrFile, setQrFile] = useState(null);
   const [transactionId, setTransactionId] = useState('');
+  const [qrImageUrl, setQrImageUrl] = useState(null);  // dynamic from DB
+  const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster
+  const razorpayTriggeredRef = useRef(false); // prevents duplicate Razorpay launches
+
+  const fetchInitialData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshingPlans(true);
+    else setLoadingPlans(true);
+    try {
+      const [plansData, qrData] = await Promise.allSettled([
+        subscriptionAPI.getPlans(),
+        subscriptionAPI.getQRUrl(),
+      ]);
+
+      if (plansData.status === 'fulfilled') {
+        const loadedPlans = plansData.value || [];
+        console.log(`[Subscription] Plans loaded from DB: ${loadedPlans.length} plans`, loadedPlans);
+        setPlans(loadedPlans);
+        if (loadedPlans.length === 0) {
+          console.warn('[Subscription] WARNING: No plans returned from /subscription/plans — DB may be empty.');
+          addToast('No subscription plans found. Admin may need to create plans first.', 'info');
+        }
+      } else {
+        const err = plansData.reason;
+        console.error('[Subscription] Failed to load plans:', err?.response?.data || err?.message || err);
+        console.error('[Subscription] Error status:', err?.response?.status);
+        addToast('Failed to load subscription plans. Please refresh.', 'error');
+      }
+
+      if (qrData.status === 'fulfilled' && qrData.value) {
+        console.log('[Subscription] QR URL loaded from DB:', qrData.value);
+        setQrImageUrl(qrData.value);
+        setQrTimestamp(Date.now()); // bust cache on fresh load
+      } else {
+        console.warn('[Subscription] No QR URL configured — admin has not uploaded a QR code yet.');
+        if (qrData.reason) {
+          console.error('[Subscription] QR fetch error:', qrData.reason?.response?.data || qrData.reason?.message);
+        }
+      }
+    } catch (err) {
+      console.error('[Subscription] Unexpected error fetching initial data:', err);
+    } finally {
+      setLoadingPlans(false);
+      setRefreshingPlans(false);
+    }
+  }, [addToast]);
 
   useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        const data = await subscriptionAPI.getPlans();
-        setPlans(data);
-      } catch (err) {
-        console.error('Failed to load plans', err);
-        addToast('Failed to load subscription plans. Please refresh.', 'error');
-      } finally {
-        setLoadingPlans(false);
-      }
-    };
-    fetchPlans();
-  }, []);
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const loadRazorpayScript = () =>
     new Promise((resolve) => {
@@ -131,7 +166,19 @@ const Subscription = () => {
     }
   };
 
-  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace('/api', '');
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api$/, '');
+
+  // Build the full QR image src URL — handles relative paths AND absolute URLs (Supabase, CDN, etc)
+  const buildQRSrc = (url, ts) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      // Absolute URL (Supabase storage, CDN) — append cache-buster as query param
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}v=${ts}`;
+    }
+    // Relative path — prefix with backend base URL
+    return `${API_BASE}${url}?v=${ts}`;
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
@@ -223,6 +270,15 @@ const Subscription = () => {
         <p className="text-slate-500 text-sm leading-relaxed">
           Every plan includes full access to SEO auditing, AI strategy generation, social media analytics, and downloadable PDF reports.
         </p>
+        <button
+          onClick={() => fetchInitialData(true)}
+          disabled={refreshingPlans}
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-violet-600 transition-colors mt-1 disabled:opacity-50"
+          title="Refresh plans from database"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshingPlans ? 'animate-spin' : ''}`} />
+          {refreshingPlans ? 'Refreshing...' : 'Refresh Plans'}
+        </button>
       </div>
 
       {/* Plans Grid */}
@@ -372,15 +428,30 @@ const Subscription = () => {
                   </button>
                 </div>
               ) : paymentModal.method === 'razorpay' ? (
-                <div className="text-center py-6">
-                  <Loader2 className="h-8 w-8 text-blue-500 animate-spin mx-auto mb-4" />
-                  <p className="text-sm text-slate-600 font-medium">Initializing Razorpay Secure Checkout...</p>
-                  {setTimeout(() => handleRazorpayFlow(paymentModal.plan), 500) && ''}
-                </div>
+                <RazorpayLoader plan={paymentModal.plan} onTrigger={handleRazorpayFlow} />
               ) : (
                 <form onSubmit={handleQRSubmit} className="space-y-5">
                   <div className="text-center">
-                    <img src={`${API_BASE}/uploads/platform_qr.png`} alt="Scan to pay" className="w-48 h-48 mx-auto border-4 border-slate-50 rounded-xl shadow-sm mb-3" onError={(e) => { e.target.src = 'https://via.placeholder.com/200?text=QR+Code+Not+Set'; }} />
+                    {qrImageUrl ? (
+                      <img
+                        key={qrTimestamp}
+                        src={buildQRSrc(qrImageUrl, qrTimestamp)}
+                        alt="Scan to pay"
+                        className="w-48 h-48 mx-auto border-4 border-slate-50 rounded-xl shadow-sm mb-3 object-contain"
+                        onLoad={(e) => console.log('[Subscription] QR image loaded successfully from:', e.target.src)}
+                        onError={(e) => {
+                          console.error('[Subscription] QR image FAILED to load from:', e.target.src);
+                          console.error('[Subscription] qrImageUrl value was:', qrImageUrl);
+                          console.error('[Subscription] API_BASE was:', API_BASE);
+                          e.target.src = 'https://placehold.co/200x200?text=QR+Not+Set';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-48 h-48 mx-auto border-4 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center mb-3 bg-slate-50">
+                        <p className="text-xs text-slate-400 font-semibold text-center px-3">QR code not configured yet.</p>
+                        <p className="text-[10px] text-slate-300 mt-1">Ask admin to upload one.</p>
+                      </div>
+                    )}
                     <p className="text-sm font-bold text-slate-800">Scan to pay ₹{paymentModal.plan.price}</p>
                     <p className="text-xs text-slate-500 mt-1">Please scan the QR code using any UPI app.</p>
                   </div>

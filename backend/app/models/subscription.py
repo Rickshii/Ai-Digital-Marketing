@@ -71,3 +71,12 @@ class PlanPrice(Base):
     description = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+
+class PlatformSettings(Base):
+    """Singleton settings table — one row stores platform-wide config like the QR image URL."""
+    __tablename__ = "platform_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)   # e.g. "qr_image_url"
+    value = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

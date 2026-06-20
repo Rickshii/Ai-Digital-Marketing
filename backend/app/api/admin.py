@@ -13,7 +13,7 @@ from app.models.social_media import SocialMediaAnalysis
 from app.models.report import Report
 from app.models.marketing_strategy import MarketingStrategy
 from app.models.business import BusinessProfile
-from app.models.subscription import Payment, Subscription, TrialHistory, PlanPrice
+from app.models.subscription import Payment, Subscription, TrialHistory, PlanPrice, PlatformSettings
 from app.services.access_service import AccessService
 from app.core.security import get_password_hash
 from app.schemas.user import User as UserSchema
@@ -371,18 +371,20 @@ def update_plan(
     db: Session = Depends(get_db),
     current_admin: UserModel = Depends(get_current_admin)
 ):
-    """Update the price / duration / description of a plan."""
+    """Update price / duration / description. Change is immediately visible on the subscription page."""
     plan = db.query(PlanPrice).filter(PlanPrice.id == plan_id).first()
     if not plan:
+        print(f"[Admin] UPDATE plan FAILED - plan_id={plan_id} not found")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
 
-    plan.plan_name    = body.plan_name
-    plan.price        = body.price
-    plan.duration_days= body.duration_days
-    plan.description  = body.description
-    plan.updated_at   = datetime.utcnow()
+    plan.plan_name     = body.plan_name
+    plan.price         = body.price
+    plan.duration_days = body.duration_days
+    plan.description   = body.description
+    plan.updated_at    = datetime.utcnow()
     db.commit()
     db.refresh(plan)
+    print(f"[Admin] UPDATE plan OK -> id={plan.id} name='{plan.plan_name}' price={plan.price} days={plan.duration_days}")
     return {
         "id": plan.id,
         "plan_name": plan.plan_name,
@@ -400,9 +402,10 @@ def create_plan(
     db: Session = Depends(get_db),
     current_admin: UserModel = Depends(get_current_admin)
 ):
-    """Create a new subscription plan."""
+    """Create a new subscription plan. Immediately reflected on the public /subscription/plans endpoint."""
     existing = db.query(PlanPrice).filter(PlanPrice.plan_name == body.plan_name).first()
     if existing:
+        print(f"[Admin] CREATE plan FAILED - '{body.plan_name}' already exists (id={existing.id})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"A plan named '{body.plan_name}' already exists. Use PUT to update it."
@@ -416,6 +419,7 @@ def create_plan(
     db.add(new_plan)
     db.commit()
     db.refresh(new_plan)
+    print(f"[Admin] CREATE plan OK -> id={new_plan.id} name='{new_plan.plan_name}' price={new_plan.price} days={new_plan.duration_days}")
     return {
         "id": new_plan.id,
         "plan_name": new_plan.plan_name,
@@ -444,17 +448,49 @@ def delete_plan(
 import shutil
 import os
 
+# ─── Helper to get/set platform settings ────────────────────────────────────
+def _get_setting(db: Session, key: str) -> str | None:
+    row = db.query(PlatformSettings).filter(PlatformSettings.key == key).first()
+    return row.value if row else None
+
+def _set_setting(db: Session, key: str, value: str):
+    row = db.query(PlatformSettings).filter(PlatformSettings.key == key).first()
+    if row:
+        row.value = value
+        row.updated_at = datetime.utcnow()
+    else:
+        row = PlatformSettings(key=key, value=value)
+        db.add(row)
+    db.commit()
+    print(f"[Platform Settings] SET {key} = {value}")
+
+
+@router.get("/platform-qr")
+def get_platform_qr(
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Returns the current platform QR code URL stored in the database."""
+    url = _get_setting(db, "qr_image_url")
+    print(f"[Admin] GET /platform-qr -> {url}")
+    return {"qr_image_url": url}
+
+
 @router.post("/platform-qr")
 def upload_platform_qr(
     file: UploadFile = File(...),
+    db: Session = Depends(get_db),
     current_admin: UserModel = Depends(get_current_admin)
 ):
-    """Upload the central UPI/QR code image for payments."""
+    """Upload the central UPI/QR code image and persist its URL in the database."""
     os.makedirs("uploads", exist_ok=True)
     filepath = os.path.join("uploads", "platform_qr.png")
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    return {"success": True, "url": "/uploads/platform_qr.png"}
+    qr_url = "/uploads/platform_qr.png"
+    _set_setting(db, "qr_image_url", qr_url)
+    print(f"[Admin] QR code uploaded and saved to DB -> {qr_url}")
+    return {"success": True, "qr_image_url": qr_url}
 
 @router.get("/payments/pending")
 def list_pending_payments(
