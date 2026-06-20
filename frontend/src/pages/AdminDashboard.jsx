@@ -46,7 +46,7 @@ const AdminDashboard = () => {
   const [platformQRFile, setPlatformQRFile] = useState(null);
   const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster after upload
   const [currentQRUrl, setCurrentQRUrl] = useState(null);    // URL from DB
-  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace('/api', '');
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api\/?$/, '');
 
   const fetchPendingPayments = async () => {
     setPaymentsLoading(true);
@@ -783,6 +783,7 @@ const AdminDashboard = () => {
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Upload New QR Code</label>
                         <input 
+                          key={qrTimestamp}
                           type="file" 
                           accept="image/*"
                           onChange={e => setPlatformQRFile(e.target.files[0])}

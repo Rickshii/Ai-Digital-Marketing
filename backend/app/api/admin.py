@@ -483,11 +483,16 @@ def upload_platform_qr(
     current_admin: UserModel = Depends(get_current_admin)
 ):
     """Upload the central UPI/QR code image and persist its URL in the database."""
+    import uuid
+    import shutil
+    import os
     os.makedirs("uploads", exist_ok=True)
-    filepath = os.path.join("uploads", "platform_qr.png")
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"platform_qr_{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join("uploads", filename)
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    qr_url = "/uploads/platform_qr.png"
+    qr_url = f"/uploads/{filename}"
     _set_setting(db, "qr_image_url", qr_url)
     print(f"[Admin] QR code uploaded and saved to DB -> {qr_url}")
     return {"success": True, "qr_image_url": qr_url}
