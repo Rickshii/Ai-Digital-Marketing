@@ -197,7 +197,6 @@ const Subscription = () => {
 
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api$/, '');
 
-  // Build the full QR image src URL — handles relative paths AND absolute URLs (Supabase, CDN, etc)
   const buildQRSrc = (url, ts) => {
     if (!url) return null;
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -206,7 +205,8 @@ const Subscription = () => {
       return `${url}${sep}v=${ts}`;
     }
     // Relative path — prefix with backend base URL
-    return `${API_BASE}${url}?v=${ts}`;
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${API_BASE}${cleanUrl}?v=${ts}`;
   };
 
   return (

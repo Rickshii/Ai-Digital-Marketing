@@ -48,6 +48,16 @@ const AdminDashboard = () => {
   const [currentQRUrl, setCurrentQRUrl] = useState(null);    // URL from DB
   const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api\/?$/, '');
 
+  const buildQRSrc = (url, ts) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}v=${ts}`;
+    }
+    const cleanUrl = url.startsWith('/') ? url : `/${url}`;
+    return `${API_BASE}${cleanUrl}?v=${ts}`;
+  };
+
   const fetchPendingPayments = async () => {
     setPaymentsLoading(true);
     try {
@@ -766,7 +776,7 @@ const AdminDashboard = () => {
                       {currentQRUrl ? (
                         <img
                           key={qrTimestamp}
-                          src={`${API_BASE}${currentQRUrl}?v=${qrTimestamp}`}
+                          src={buildQRSrc(currentQRUrl, qrTimestamp)}
                           alt="Current Platform QR"
                           className="w-36 h-36 border-4 border-white rounded-xl shadow-md object-contain bg-white"
                           onLoad={() => console.log('[AdminDashboard] QR preview loaded')}
