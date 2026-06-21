@@ -95,32 +95,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     # Authenticate user
     user = db.query(UserModel).filter(UserModel.email == form_data.username).first()
     
-    # Handle demo and admin dummy accounts automatically
-    email_lower = form_data.username.lower()
-    is_demo_or_admin = email_lower in ["demo@marketerai.com", "admin@marketerai.com"]
-    
-    if is_demo_or_admin:
-        if not user:
-            role = "admin" if email_lower == "admin@marketerai.com" else "user"
-            full_name = "Admin User" if role == "admin" else "Demo User"
-            hashed_pwd = get_password_hash("demo1234")
-            user = UserModel(
-                email=email_lower,
-                hashed_password=hashed_pwd,
-                full_name=full_name,
-                role=role
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            if role == "user":
-                AccessService.start_trial(db, user.id)
-    else:
-        if not user or not verify_password(form_data.password, user.hashed_password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Incorrect email or password"
-            )
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect email or password"
+        )
         
     # Generate token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

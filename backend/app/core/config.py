@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/ai_marketing"
-    USE_SQLITE_FALLBACK: bool = True
+    USE_SQLITE_FALLBACK: bool = False
     SQLITE_DATABASE_URL: str = "sqlite:///./ai_marketing.db"
 
     # Razorpay configurations

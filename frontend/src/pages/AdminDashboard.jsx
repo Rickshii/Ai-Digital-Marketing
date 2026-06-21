@@ -46,7 +46,7 @@ const AdminDashboard = () => {
   const [platformQRFile, setPlatformQRFile] = useState(null);
   const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster after upload
   const [currentQRUrl, setCurrentQRUrl] = useState(null);    // URL from DB
-  const API_BASE = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api').replace(/\/api\/?$/, '');
+  const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api\/?$/, '');
 
   const buildQRSrc = (url, ts) => {
     if (!url) return null;

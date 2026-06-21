@@ -16,8 +16,8 @@ const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState('login');
-  const [email, setEmail] = useState('demo@marketerai.com');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -153,13 +153,7 @@ const Login = () => {
                   <p className="text-slate-500 text-sm mt-1">Sign in to your marketing console</p>
                 </div>
 
-                {/* Demo hint */}
-                <div className="mb-5 flex items-start gap-2 rounded-xl bg-violet-50 border border-violet-100 p-3">
-                  <Zap className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-violet-700 leading-relaxed">
-                    <strong>Demo ready!</strong> Use <code className="bg-violet-100 px-1 rounded">demo@marketerai.com</code> with any password to explore the platform.
-                  </p>
-                </div>
+
 
                 {error && (
                   <div className="mb-5 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
