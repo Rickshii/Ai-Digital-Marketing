@@ -83,7 +83,14 @@ export const AuthProvider = ({ children }) => {
       // Automatically login after successful registration
       return await login(email, password);
     } catch (err) {
-      const errMsg = err.response?.data?.detail || "Registration failed. Try a different email.";
+      let errMsg = "Registration failed. Try a different email.";
+      if (!err.response || err.code === 'ERR_NETWORK') {
+        errMsg = "Cannot connect to the server. Please ensure the backend is running.";
+      } else if (err.response.status >= 500) {
+        errMsg = "Server error during registration. Please try again later.";
+      } else if (err.response?.data?.detail) {
+        errMsg = err.response.data.detail;
+      }
       setError(errMsg);
       throw new Error(errMsg, { cause: err });
     } finally {
