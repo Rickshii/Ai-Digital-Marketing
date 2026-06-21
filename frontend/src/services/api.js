@@ -54,162 +54,14 @@ const setLocalData = (key, val) => {
   localStorage.setItem(key, JSON.stringify(val));
 };
 
-// Initialize Mock Database
-const initMockDB = () => {
-  // Mock Users
-  getLocalData('mock_users', [
-    {
-      id: 1,
-      email: 'demo@marketerai.com',
-      full_name: 'Sarah Jenkins',
-      role: 'Enterprise Consultant',
-      company: 'GrowthHackers Agency'
-    }
-  ]);
-  
-  // Mock Profiles
-  getLocalData('mock_profiles', [
-    {
-      id: 'prof-1',
-      business_name: 'Acme SaaS Corp',
-      business_category: 'SaaS / Technology',
-      industry_type: 'B2B',
-      website_url: 'https://acme-saas-corp.io',
-      business_location: '600 California St, San Francisco, CA, United States - 94108',
-      business_address: '600 California St',
-      city: 'San Francisco',
-      state: 'CA',
-      country: 'United States',
-      pincode: '94108',
-      google_profile_registered: 'Yes',
-      google_maps_link: 'https://maps.google.com/?q=Acme+SaaS+Corp+San+Francisco',
-      number_of_branches: 2,
-      branch_locations: 'New York, Austin',
-      target_audience: 'Mid-Market Marketing Directors & Product Owners',
-      description: 'Acme SaaS Corp provides automated cloud optimization software for scaling enterprises. We help organizations cut server costs by up to 45% through intelligent load-balancing and predictive auto-scaling modules.',
-      email: 'growth@acmesaas.io',
-      contact_number: '+1 (555) 304-2091',
-      whatsapp_number: '+1 (555) 304-2092',
-      social_media_links: {
-        linkedin: 'https://linkedin.com/company/acmesaas',
-        twitter: 'https://twitter.com/acmesaas',
-        facebook: 'https://facebook.com/acmesaas',
-        instagram: 'https://instagram.com/acmesaas',
-        youtube: 'https://youtube.com/@acmesaas'
-      },
-      completeness_score: 95,
-      missing_info_report: [],
-      improvement_suggestions: [
-        'Establish regular bi-weekly thought leadership articles on LinkedIn targeting Cloud Security to double organically referred SaaS leads.',
-        'Launch retargeting ads on Twitter focusing on technical decision-makers with a case study detailing server optimizations.',
-        'Optimize metadata on home page. Currently, the description is 82 characters, which is below the recommended 150-160 character limit.',
-        'Verify SSL cipher suites. Some legacy browsers fail to load media elements correctly due to strict newer TLS settings.'
-      ],
-      last_updated: '2026-06-05T10:30:00.000Z',
-      score_history: [
-        { score: 70, date: '2026-05-15T09:00:00.000Z' },
-        { score: 85, date: '2026-05-25T14:20:00.000Z' },
-        { score: 95, date: '2026-06-05T10:30:00.000Z' }
-      ]
-    },
-    {
-      id: 'prof-2',
-      business_name: 'Bloom Floral & Co',
-      business_category: 'E-commerce / Retail',
-      industry_type: 'B2C',
-      website_url: 'https://bloomfloral.shop',
-      business_location: '215 South Congress Ave, Austin, TX, United States - 78704',
-      business_address: '215 South Congress Ave',
-      city: 'Austin',
-      state: 'TX',
-      country: 'United States',
-      pincode: '78704',
-      google_profile_registered: 'No',
-      google_maps_link: '',
-      number_of_branches: 1,
-      branch_locations: 'Houston',
-      target_audience: 'Local event planners, brides-to-be, luxury gift shoppers',
-      description: 'We craft premium organic botanical arrangements and supply exotic plants for events and retail. We focus on ethical, locally sourced floristry and same-day boutique deliveries.',
-      email: 'hello@bloomfloral.shop',
-      contact_number: '+1 (512) 808-1122',
-      whatsapp_number: '+1 (512) 808-1123',
-      social_media_links: {
-        linkedin: '',
-        twitter: 'https://twitter.com/bloomfloral',
-        facebook: 'https://facebook.com/bloomfloral',
-        instagram: 'https://instagram.com/bloomfloral',
-        youtube: ''
-      },
-      completeness_score: 74,
-      missing_info_report: ['LinkedIn URL', 'YouTube Channel', 'Google Business Profile not registered'],
-      improvement_suggestions: [
-        'Instagram engagement is high, but link-in-bio traffic is not tagged. Use UTM parameters to measure exact conversions from social media.',
-        'Register a Google Business Profile and upload photos of seasonal catalog weekly to rank higher in regional search results.',
-        'The website loads slowly on mobile (3.4s). Compress image assets on the catalog page to improve page response speed and reduce bounce rates.'
-      ],
-      last_updated: '2026-06-01T12:00:00.000Z',
-      score_history: [
-        { score: 60, date: '2026-05-10T11:00:00.000Z' },
-        { score: 74, date: '2026-06-01T12:00:00.000Z' }
-      ]
-    }
-  ]);
-
-  // Mock Website Audits
-  getLocalData('mock_audits', [
-    {
-      id: 'aud-1',
-      title: 'Acme Corporate Domain Audit',
-      website_url: 'https://acme-saas-corp.io',
-      health_score: 88,
-      seo_score: 91,
-      performance_score: 84,
-      social_score: 78,
-      marketing_score: 89,
-      load_time: '1.2s',
-      mobile_friendly: true,
-      secure: true,
-      open_graph: true,
-      created_at: new Date(Date.now() - 3600000 * 24 * 3).toISOString(), // 3 days ago
-      suggestions: [
-        { id: 1, type: 'critical', message: 'Optimize images on the home hero banner. Save 1.8MB by encoding to WebP format.' },
-        { id: 2, type: 'warning', message: 'H1 heading tag is missing on the features subpage. Ensure every page has exactly one H1.' },
-        { id: 3, type: 'info', message: 'Improve TTFB (Time to First Byte) by edge caching API queries at Cloudflare.' }
-      ]
-    },
-    {
-      id: 'aud-2',
-      title: 'Bloom E-Commerce Portal',
-      website_url: 'https://bloomfloral.shop',
-      health_score: 64,
-      seo_score: 72,
-      performance_score: 55,
-      social_score: 88,
-      marketing_score: 68,
-      load_time: '3.4s',
-      mobile_friendly: true,
-      secure: true,
-      open_graph: false,
-      created_at: new Date(Date.now() - 3600000 * 24 * 7).toISOString(), // 7 days ago
-      suggestions: [
-        { id: 1, type: 'critical', message: 'Render-blocking CSS assets are delaying load. Inline critical styles above the fold.' },
-        { id: 2, type: 'critical', message: 'Missing Open Graph (OG) image tags. Social shares will look plain and unprofessional.' },
-        { id: 3, type: 'warning', message: 'Alt attributes are missing on 14 product catalog images, hurting Google Image search rankings.' }
-      ]
-    }
-  ]);
-};
-
-initMockDB();
-
 // Helper to determine if we should fall back to mock
 const executeWithFallback = async (apiCall, mockHandler) => {
   try {
     const response = await apiCall();
     return response;
   } catch (error) {
-    // If connection refused, network error, timeout, or 404/500
-    if (!error.response || error.code === 'ERR_NETWORK' || error.response.status === 404 || error.response.status >= 500) {
+    // Only fall back if the backend is completely unreachable
+    if (!error.response || error.code === 'ERR_NETWORK') {
       console.warn('API connection failed or unavailable. Falling back to local storage mock database.', error.message);
       return mockHandler();
     }
@@ -314,17 +166,7 @@ export const authAPI = {
       () => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-          const user = JSON.parse(storedUser);
-          // Normalize legacy display-role values to 'admin'/'user'
-          const legacyAdminRoles = ['Enterprise Consultant', 'enterprise consultant'];
-          if (legacyAdminRoles.includes(user.role) || user.email?.toLowerCase().includes('admin')) {
-            user.role = 'admin';
-          } else if (!['admin', 'user'].includes(user.role)) {
-            user.role = 'user';
-          }
-          // Persist the normalized role back so it's consistent
-          localStorage.setItem('user', JSON.stringify(user));
-          return user;
+          return JSON.parse(storedUser);
         }
         throw { response: { status: 401 } };
       }
