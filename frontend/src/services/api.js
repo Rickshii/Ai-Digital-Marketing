@@ -26,7 +26,14 @@ api.interceptors.request.use(
 
 // Response interceptor to handle token expiry / unauthenticated requests
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Reject unexpected HTML responses (caused by Vercel rewrites when VITE_API_URL is missing)
+    if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype html>')) {
+      console.error("Critical: Received HTML instead of JSON. Ensure VITE_API_URL is set correctly.");
+      return Promise.reject(new Error("Invalid API response format (HTML)."));
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
