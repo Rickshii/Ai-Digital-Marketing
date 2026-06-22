@@ -93,18 +93,13 @@ import os
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# CORS configuration
-origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",  # Vite default port
-    "http://127.0.0.1:5173",
-    "*"
-]
-
+# CORS configuration — allow all origins for production compatibility.
+# We use Bearer token auth (Authorization header), NOT cookies,
+# so allow_credentials=False is correct and allows wildcard origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
