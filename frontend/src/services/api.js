@@ -1,13 +1,13 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`;
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8000/api`);
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 5000, // default timeout — overridden per-call for long-running audit/social requests
+  timeout: 50000, // default timeout — overridden per-call for long-running audit/social requests
 });
 
 // Request interceptor to attach JWT token
@@ -39,8 +39,7 @@ api.interceptors.response.use(
   }
 );
 
-// --- DUAL MODE PERSISTENT MOCK DATABASE ---
-// This ensures that if the backend is not running, the application works perfectly using LocalStorage.
+// --- LOCAL STORAGE UTILS (Kept for caching purposes) ---
 const getLocalData = (key, defaultVal) => {
   const data = localStorage.getItem(key);
   if (!data) {
@@ -54,19 +53,9 @@ const setLocalData = (key, val) => {
   localStorage.setItem(key, JSON.stringify(val));
 };
 
-// Helper to determine if we should fall back to mock
+// Helper to enforce live PostgreSQL API calls instead of mock data
 const executeWithFallback = async (apiCall, mockHandler) => {
-  try {
-    const response = await apiCall();
-    return response;
-  } catch (error) {
-    // Only fall back if the backend is completely unreachable
-    if (!error.response || error.code === 'ERR_NETWORK') {
-      console.warn('API connection failed or unavailable. Falling back to local storage mock database.', error.message);
-      return mockHandler();
-    }
-    throw error;
-  }
+  return await apiCall();
 };
 
 // API Services Export
