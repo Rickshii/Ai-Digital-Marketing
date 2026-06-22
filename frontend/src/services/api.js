@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8000/api`);
+let envApiUrl = import.meta.env.VITE_API_URL;
+if (envApiUrl) {
+  // Remove any trailing slashes
+  envApiUrl = envApiUrl.replace(/\/+$/, '');
+  // Append /api if it doesn't already end with it
+  if (!envApiUrl.endsWith('/api')) {
+    envApiUrl = `${envApiUrl}/api`;
+  }
+}
+
+const API_URL = envApiUrl || (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8000/api`);
 
 const api = axios.create({
   baseURL: API_URL,

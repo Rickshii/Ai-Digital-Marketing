@@ -7,7 +7,7 @@ import {
   Megaphone, FileText, Settings, LogOut, Menu, X,
   Sparkles, Bell, ChevronDown, TrendingUp, Zap, Shield, AlertCircle
 } from 'lucide-react';
-const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api$/, '');
+const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api\/?$/, '');
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard, color: 'from-violet-500 to-purple-600' },

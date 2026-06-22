@@ -217,7 +217,7 @@ const Subscription = () => {
     }
   };
 
-  const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api$/, '');
+  const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api\/?$/, '');
 
   const buildQRSrc = (url, ts) => {
     if (!url) return null;
