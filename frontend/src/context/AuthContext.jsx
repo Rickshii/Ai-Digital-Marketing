@@ -62,8 +62,11 @@ export const AuthProvider = ({ children }) => {
 
       return data.user;
     } catch (err) {
-      let errMsg = "Invalid credentials. Please check your inputs.";
-      if (!err.response || err.code === 'ERR_NETWORK') {
+      let errMsg = "Invalid credentials. Please check your email and password.";
+      if (err.message?.toLowerCase().includes('html')) {
+        // Backend not deployed — Vercel returned index.html instead of JSON
+        errMsg = "Cannot connect to the backend server. The API is not configured for this deployment.";
+      } else if (!err.response || err.code === 'ERR_NETWORK') {
         errMsg = "Cannot connect to the server. Please ensure the backend is running on port 8000.";
       } else if (err.response?.data?.detail) {
         errMsg = err.response.data.detail;
