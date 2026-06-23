@@ -223,14 +223,11 @@ def submit_qr_payment(
     plan = plans[plan_name]
     amount = plan["price"]
 
-    import shutil
-    import uuid
-    os.makedirs("uploads", exist_ok=True)
-    ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
-    filename = f"qr_{uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join("uploads", filename)
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(screenshot.file, buffer)
+    from app.services.storage_service import StorageService
+    file_bytes = screenshot.file.read()
+    mime_type = screenshot.content_type or "image/png"
+    
+    payment_proof_url = StorageService.upload_file(file_bytes, screenshot.filename, mime_type, folder="proofs")
 
     from app.models.subscription import Payment
     payment = Payment(
@@ -239,7 +236,7 @@ def submit_qr_payment(
         currency="INR",
         razorpay_order_id=razorpay_order_id,
         payment_method="qr",
-        payment_proof=f"/uploads/{filename}",
+        payment_proof=payment_proof_url,
         plan_name=plan_name,
         status="pending_verification"
     )

@@ -76,7 +76,38 @@ def upgrade_db_schema():
     finally:
         db.close()
 
+def seed_admin_user():
+    from app.core.database import SessionLocal
+    from app.models.user import User as UserModel
+    from app.core.security import get_password_hash
+    
+    db = SessionLocal()
+    try:
+        admin_email = "demo@marketerai.com"
+        admin = db.query(UserModel).filter(UserModel.email == admin_email).first()
+        if not admin:
+            admin = UserModel(
+                email=admin_email,
+                full_name="Demo Admin",
+                hashed_password=get_password_hash("demo1234"),
+                role="admin"
+            )
+            db.add(admin)
+            db.commit()
+            print(f"[Startup] Created default admin user: {admin_email}")
+        else:
+            # Ensure the role is admin
+            if admin.role != "admin":
+                admin.role = "admin"
+                db.commit()
+                print(f"[Startup] Updated user {admin_email} role to admin")
+    except Exception as e:
+        print(f"[Startup] Error seeding admin user: {e}")
+    finally:
+        db.close()
+
 upgrade_db_schema()
+seed_admin_user()
 
 from app.api import auth, business, audit
 from app.api import social_media, strategy, reports, admin, subscription

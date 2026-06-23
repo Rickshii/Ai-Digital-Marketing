@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
 
+    # Supabase storage configurations
+    SUPABASE_URL: Optional[str] = os.environ.get("SUPABASE_URL", "")
+    SUPABASE_KEY: Optional[str] = os.environ.get("SUPABASE_KEY", "")
+    SUPABASE_BUCKET: str = os.environ.get("SUPABASE_BUCKET", "uploads")
+
     class Config:
         env_file = ".env"
         case_sensitive = True

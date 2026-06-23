@@ -835,7 +835,12 @@ const AdminDashboard = () => {
                               <td className="p-4 font-mono text-slate-500">{pay.razorpay_order_id}</td>
                               <td className="p-4">
                                 {pay.payment_proof ? (
-                                  <a href={`${API_BASE}${pay.payment_proof}`} target="_blank" className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-md font-bold text-[10px] w-fit">
+                                  <a 
+                                    href={pay.payment_proof.startsWith('http') ? pay.payment_proof : `${API_BASE}${pay.payment_proof}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-md font-bold text-[10px] w-fit"
+                                  >
                                     <Eye className="h-3 w-3" /> View Image
                                   </a>
                                 ) : 'None'}

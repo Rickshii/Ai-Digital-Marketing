@@ -1,4 +1,4 @@
-﻿import axios from 'axios';
+import axios from 'axios';
 
 let envApiUrl = import.meta.env.VITE_API_URL;
 if (envApiUrl) {
@@ -72,13 +72,8 @@ const setLocalData = (key, val) => {
 
 // Helper to fall back to mock data if the backend is unavailable or failing
 const executeWithFallback = async (apiCall, mockHandler) => {
-  try {
-    const response = await apiCall();
-    return response;
-  } catch (error) {
-    console.warn("Backend API unavailable or failing, falling back to mock handler", error.message || error);
-    return mockHandler();
-  }
+  // To enforce relying exclusively on the PostgreSQL database, we throw the API error directly and bypass mock handlers.
+  return await apiCall();
 };
 
 // API Services Export

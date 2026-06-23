@@ -182,15 +182,11 @@ def upload_avatar(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ):
-    os.makedirs("uploads/avatars", exist_ok=True)
-    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
-    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
-    filepath = os.path.join("uploads/avatars", filename)
+    from app.services.storage_service import StorageService
+    file_bytes = file.file.read()
+    mime_type = file.content_type or "image/png"
     
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    avatar_url = f"/uploads/avatars/{filename}"
+    avatar_url = StorageService.upload_file(file_bytes, file.filename, mime_type, folder="avatars")
     current_user.avatar_url = avatar_url
     db.commit()
     db.refresh(current_user)
