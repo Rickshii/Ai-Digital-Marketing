@@ -10,7 +10,7 @@ connect_args = {}
 
 if settings.USE_SQLITE_FALLBACK:
     try:
-        # Attempt to test postgresql connection
+        # Attempt to test PostgreSQL connection
         temp_engine = create_engine(db_url, connect_args={'connect_timeout': 3})
         with temp_engine.connect() as conn:
             pass
@@ -20,7 +20,14 @@ if settings.USE_SQLITE_FALLBACK:
         db_url = settings.SQLITE_DATABASE_URL
         connect_args = {"check_same_thread": False}
 else:
-    logger.info("Using PostgreSQL database (no fallback).")
+    try:
+        temp_engine = create_engine(db_url, connect_args={'connect_timeout': 3})
+        with temp_engine.connect() as conn:
+            pass
+        logger.info("Using PostgreSQL database (no fallback).")
+    except Exception as e:
+        logger.error(f"PostgreSQL connection failed and fallback is disabled. Error: {e}")
+        raise
 
 engine = create_engine(db_url, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

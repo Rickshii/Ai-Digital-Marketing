@@ -102,14 +102,12 @@ const AdminDashboard = () => {
     fd.append("file", platformQRFile);
     try {
       const result = await adminAPI.uploadPlatformQR(fd);
-      const newUrl = result.qr_image_url || result.url || '/uploads/platform_qr.png';
+      const newUrl = result.qr_image_url || result.url || null;
       setCurrentQRUrl(newUrl);
-      setQrTimestamp(Date.now()); // force image cache bust
+      setQrTimestamp(Date.now());
       addToast('Platform QR code uploaded and saved successfully.', 'success');
       setPlatformQRFile(null);
-      console.log('[AdminDashboard] QR uploaded, new URL:', newUrl);
     } catch(err) {
-      console.error('[AdminDashboard] QR upload failed:', err);
       addToast('Failed to upload QR code: ' + (err.response?.data?.detail || err.message), 'error');
     }
   };
@@ -145,9 +143,7 @@ const AdminDashboard = () => {
       setNewPlan(BLANK_PLAN);
       setShowNewPlanForm(false);
       addToast(`Plan "${created.plan_name}" created successfully. It is now live on the Subscription page.`, 'success');
-      console.log('[AdminDashboard] Plan created:', created);
     } catch (err) {
-      console.error('[AdminDashboard] Create plan error:', err);
       setPlanError(err.response?.data?.detail || 'Failed to create plan.');
     } finally {
       setPlanSaving(false);
@@ -168,9 +164,7 @@ const AdminDashboard = () => {
       setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditingPlan(null);
       addToast(`Plan "${updated.plan_name}" updated successfully. Changes are live on the Subscription page.`, 'success');
-      console.log('[AdminDashboard] Plan updated:', updated);
     } catch (err) {
-      console.error('[AdminDashboard] Update plan error:', err);
       setPlanError(err.response?.data?.detail || 'Failed to update plan.');
     } finally {
       setPlanSaving(false);
@@ -215,13 +209,9 @@ const AdminDashboard = () => {
     if (activeTab === 'plans') fetchPlans();
     if (activeTab === 'payments') {
       fetchPendingPayments();
-      // Load current QR URL from DB when switching to payments tab
       adminAPI.getQRUrl().then(url => {
-        if (url) {
-          setCurrentQRUrl(url);
-          console.log('[AdminDashboard] Loaded current QR URL:', url);
-        }
-      }).catch(err => console.error('[AdminDashboard] Failed to load QR URL:', err));
+        if (url) setCurrentQRUrl(url);
+      }).catch(() => {});
     }
   }, [activeTab]);
 

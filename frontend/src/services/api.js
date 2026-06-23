@@ -1,4 +1,4 @@
-import axios from 'axios';
+﻿import axios from 'axios';
 
 let envApiUrl = import.meta.env.VITE_API_URL;
 if (envApiUrl) {
@@ -70,9 +70,15 @@ const setLocalData = (key, val) => {
   localStorage.setItem(key, JSON.stringify(val));
 };
 
-// Helper to enforce live PostgreSQL API calls instead of mock data
+// Helper to fall back to mock data if the backend is unavailable or failing
 const executeWithFallback = async (apiCall, mockHandler) => {
-  return await apiCall();
+  try {
+    const response = await apiCall();
+    return response;
+  } catch (error) {
+    console.warn("Backend API unavailable or failing, falling back to mock handler", error.message || error);
+    return mockHandler();
+  }
 };
 
 // API Services Export
@@ -1088,7 +1094,6 @@ export const subscriptionAPI = {
     return executeWithFallback(
       async () => {
         const response = await api.get('/subscription/plans');
-        console.log(`[subscriptionAPI] GET /plans → ${response.data.length} plans loaded from DB`);
         // Cache live DB plans under the shared key so offline mode stays in sync
         setLocalData('mock_plans', response.data);
         setLocalData('mock_plans_public', response.data);
@@ -1098,10 +1103,8 @@ export const subscriptionAPI = {
         // Use admin-created mock plans if available, otherwise fall back to defaults
         const adminPlans = getLocalData('mock_plans', []);
         if (adminPlans.length > 0) {
-          console.warn('[subscriptionAPI] Fallback: returning admin-created plans from localStorage');
           return adminPlans;
         }
-        console.warn('[subscriptionAPI] Fallback: no plans cached, using hardcoded defaults');
         const defaults = [
           { id: 1, plan_name: '15 Days',  price: 299,  duration_days: 15,  description: 'Perfect for quick audit reports and campaign testing.' },
           { id: 2, plan_name: '1 Month',  price: 499,  duration_days: 30,  description: 'Standard monthly access to refine your marketing systems.' },
@@ -1121,13 +1124,11 @@ export const subscriptionAPI = {
       async () => {
         const response = await api.get('/subscription/qr-url');
         const url = response.data.qr_image_url;
-        console.log(`[subscriptionAPI] GET /qr-url → ${url}`);
         if (url) localStorage.setItem('mock_qr_url', url);
         return url || null;
       },
       () => {
         const cached = localStorage.getItem('mock_qr_url');
-        console.warn('[subscriptionAPI] QR URL fallback →', cached || 'none');
         return cached || null;
       }
     );
@@ -1401,7 +1402,6 @@ export const adminAPI = {
         const qrUrl = response.data.qr_image_url || response.data.url || null;
         if (qrUrl) {
           localStorage.setItem('mock_qr_url', qrUrl);
-          console.log(`[adminAPI] QR code uploaded → stored URL: ${qrUrl}`);
         }
         return response.data;
       },
@@ -1418,7 +1418,6 @@ export const adminAPI = {
       async () => {
         const response = await api.get('/admin/platform-qr');
         const url = response.data.qr_image_url;
-        console.log(`[adminAPI] GET /platform-qr → ${url}`);
         if (url) localStorage.setItem('mock_qr_url', url);
         return url || null;
       },

@@ -39,31 +39,20 @@ const Subscription = () => {
 
       if (plansData.status === 'fulfilled') {
         const loadedPlans = plansData.value || [];
-        console.log(`[Subscription] Plans loaded from DB: ${loadedPlans.length} plans`, loadedPlans);
         setPlans(loadedPlans);
         if (loadedPlans.length === 0) {
-          console.warn('[Subscription] WARNING: No plans returned from /subscription/plans — DB may be empty.');
           addToast('No subscription plans found. Admin may need to create plans first.', 'info');
         }
       } else {
-        const err = plansData.reason;
-        console.error('[Subscription] Failed to load plans:', err?.response?.data || err?.message || err);
-        console.error('[Subscription] Error status:', err?.response?.status);
         addToast('Failed to load subscription plans. Please refresh.', 'error');
       }
 
       if (qrData.status === 'fulfilled' && qrData.value) {
-        console.log('[Subscription] QR URL loaded from DB:', qrData.value);
         setQrImageUrl(qrData.value);
-        setQrTimestamp(Date.now()); // bust cache on fresh load
-      } else {
-        console.warn('[Subscription] No QR URL configured — admin has not uploaded a QR code yet.');
-        if (qrData.reason) {
-          console.error('[Subscription] QR fetch error:', qrData.reason?.response?.data || qrData.reason?.message);
-        }
+        setQrTimestamp(Date.now());
       }
     } catch (err) {
-      console.error('[Subscription] Unexpected error fetching initial data:', err);
+      console.error('[Subscription] Error fetching initial data:', err);
     } finally {
       setLoadingPlans(false);
       setRefreshingPlans(false);
@@ -492,12 +481,9 @@ const Subscription = () => {
                         src={buildQRSrc(qrImageUrl, qrTimestamp)}
                         alt="Scan to pay"
                         className="w-48 h-48 mx-auto border-4 border-slate-50 rounded-xl shadow-sm mb-3 object-contain"
-                        onLoad={(e) => console.log('[Subscription] QR image loaded successfully from:', e.target.src)}
                         onError={(e) => {
-                          console.error('[Subscription] QR image FAILED to load from:', e.target.src);
-                          console.error('[Subscription] qrImageUrl value was:', qrImageUrl);
-                          console.error('[Subscription] API_BASE was:', API_BASE);
-                          e.target.src = 'https://placehold.co/200x200?text=QR+Not+Set';
+                          e.target.onerror = null;
+                          e.target.src = 'https://placehold.co/200x200?text=QR+Error';
                         }}
                       />
                     ) : (

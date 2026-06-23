@@ -36,23 +36,7 @@ def seed_database():
         else:
             print("  User user@example.com already exists.")
 
-        # Check demo user
-        demo_user = db.query(User).filter(User.email == "demo@marketerai.com").first()
-        if not demo_user:
-            demo_user = User(
-                email="demo@marketerai.com",
-                full_name="Sarah Jenkins",
-                hashed_password=get_password_hash("demo1234"),
-                role="admin"
-            )
-            db.add(demo_user)
-            db.commit()
-            db.refresh(demo_user)
-            print("  Created demo user: demo@marketerai.com (password: demo1234)")
-        else:
-            print("  Demo user already exists.")
-
-        # Check admin user
+        # Create admin user if missing
         admin = db.query(User).filter(User.email == "admin@example.com").first()
         if not admin:
             admin = User(
