@@ -1,8 +1,9 @@
-# Environments
+# Environments — keep .env.production committed (only has placeholders, no secrets)
+# Real secrets are set in Vercel/Railway dashboards, NOT in these files.
 .env
 .env.local
-.env.production
 .env.development
+# .env.production is intentionally NOT ignored — it contains only comments/placeholders
 
 # Python
 __pycache__/

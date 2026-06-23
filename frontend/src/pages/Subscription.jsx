@@ -138,24 +138,9 @@ const Subscription = () => {
       const orderData = await subscriptionAPI.createOrder(plan.plan_name);
 
       if (orderData.is_mock) {
-        addToast('Test mode: Simulating successful payment...', 'info');
-        try {
-          const verifyRes = await subscriptionAPI.verifyPayment({
-            plan_name: plan.plan_name,
-            amount: plan.price,
-            duration_days: plan.duration_days,
-            razorpay_order_id: orderData.order_id,
-            razorpay_payment_id: "mock_payment_" + Date.now(),
-            razorpay_signature: "mock_signature",
-          });
-          if (verifyRes.success) {
-            await refreshAccessStatus();
-            addToast(`🎉 ${plan.plan_name} plan activated successfully!`, 'success');
-            setTimeout(() => navigate('/dashboard'), 1500);
-          }
-        } catch (err) {
-          addToast('Payment verification failed: ' + (err.response?.data?.detail || 'Please contact support.'), 'error');
-        }
+        // Razorpay not configured — fall back to QR payment flow
+        addToast('Razorpay is not configured. Switching to QR payment.', 'info');
+        setPaymentModal({ show: true, plan, method: 'qr' });
         return;
       }
 
@@ -202,7 +187,10 @@ const Subscription = () => {
       addToast('Could not create order: ' + (err.response?.data?.detail || 'Server error.'), 'error');
     } finally {
       setProcessingPlan(null);
-      setPaymentModal({ show: false, plan: null, method: null });
+      // Only close modal if we're not switching to QR flow
+      if (!paymentModal.show) {
+        setPaymentModal({ show: false, plan: null, method: null });
+      }
     }
   };
 

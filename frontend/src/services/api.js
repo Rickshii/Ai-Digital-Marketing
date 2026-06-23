@@ -1,23 +1,38 @@
 import axios from 'axios';
 
+// ── API URL Resolution ─────────────────────────────────────────────────────
+// Priority: VITE_API_URL env var → localhost fallback (dev only)
+// In production (Vercel), VITE_API_URL MUST be set to your Railway backend URL.
+// Example: https://your-backend.up.railway.app
+// Never set VITE_API_URL=/api — that routes back to Vercel itself.
+
 let envApiUrl = import.meta.env.VITE_API_URL;
 if (envApiUrl) {
-  // Remove any trailing slashes
+  // Normalize: remove trailing slashes, then ensure /api suffix
   envApiUrl = envApiUrl.replace(/\/+$/, '');
-  // Append /api if it doesn't already end with it
   if (!envApiUrl.endsWith('/api')) {
     envApiUrl = `${envApiUrl}/api`;
   }
 }
 
-const API_URL = envApiUrl || (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8000/api`);
+// In production without VITE_API_URL, we cannot proceed — log a warning
+if (import.meta.env.PROD && !envApiUrl) {
+  console.error(
+    '[MarketerAI] CRITICAL: VITE_API_URL is not set in Vercel Environment Variables.\n' +
+    'Go to: Vercel Dashboard → Your Project → Settings → Environment Variables\n' +
+    'Add: VITE_API_URL = https://your-backend.up.railway.app\n' +
+    'Then redeploy the project.'
+  );
+}
+
+const API_URL = envApiUrl || `http://${window.location.hostname}:8000/api`;
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 50000, // default timeout — overridden per-call for long-running audit/social requests
+  timeout: 50000,
 });
 
 // Request interceptor to attach JWT token
@@ -37,10 +52,11 @@ api.interceptors.request.use(
 // Response interceptor to handle token expiry / unauthenticated requests
 api.interceptors.response.use(
   (response) => {
-    // Reject unexpected HTML responses (caused by Vercel rewrites when VITE_API_URL is missing)
+    // Reject unexpected HTML responses (caused by Vercel when VITE_API_URL is missing)
     if (typeof response.data === 'string' && response.data.trim().toLowerCase().startsWith('<!doctype html>')) {
-      console.error("Critical: Received HTML instead of JSON. Ensure VITE_API_URL is set correctly.");
-      return Promise.reject(new Error("Invalid API response format (HTML)."));
+      const err = new Error('BACKEND_NOT_CONFIGURED');
+      err.isBackendNotConfigured = true;
+      return Promise.reject(err);
     }
     return response;
   },

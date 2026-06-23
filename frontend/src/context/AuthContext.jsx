@@ -63,17 +63,13 @@ export const AuthProvider = ({ children }) => {
       return data.user;
     } catch (err) {
       let errMsg = "Invalid credentials. Please check your email and password.";
-      
-      // Check if we hit Vercel's static file server (usually 405 Method Not Allowed for POST)
-      // or received an HTML response indicating VITE_API_URL is missing/incorrect
-      const isHtmlResponse = err.response && typeof err.response.data === 'string' && err.response.data.toLowerCase().includes('html');
-      
-      if (err.message?.toLowerCase().includes('html') || isHtmlResponse || err.response?.status === 405 || err.response?.status === 404) {
-        if (!err.response?.data?.detail) {
-          errMsg = "Backend API is not configured properly. Please set VITE_API_URL in your Vercel dashboard to point to your live backend.";
-        }
-      } else if (!err.response || err.code === 'ERR_NETWORK') {
-        errMsg = "Cannot connect to the server. Please ensure the backend is running on port 8000.";
+
+      if (err.isBackendNotConfigured || err.message === 'BACKEND_NOT_CONFIGURED') {
+        errMsg = "The backend is not reachable. Go to Vercel Dashboard → Settings → Environment Variables and set VITE_API_URL to your Railway backend URL (e.g. https://your-backend.up.railway.app), then redeploy.";
+      } else if (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED') {
+        errMsg = "Cannot connect to the server. Please ensure the backend is running.";
+      } else if (err.response?.status === 405) {
+        errMsg = "The API endpoint rejected the request method. Check your VITE_API_URL configuration.";
       } else if (err.response?.data?.detail) {
         errMsg = err.response.data.detail;
       }
@@ -94,19 +90,17 @@ export const AuthProvider = ({ children }) => {
       return await login(email, password);
     } catch (err) {
       let errMsg = "Registration failed. Try a different email.";
-      
-      const isHtmlResponse = err.response && typeof err.response.data === 'string' && err.response.data.toLowerCase().includes('html');
-      
-      if (err.message?.toLowerCase().includes('html') || isHtmlResponse || err.response?.status === 405 || err.response?.status === 404) {
-        if (!err.response?.data?.detail) {
-          errMsg = "Backend API is not configured properly. Please set VITE_API_URL in your Vercel dashboard to point to your live backend.";
-        }
-      } else if (!err.response || err.code === 'ERR_NETWORK') {
+
+      if (err.isBackendNotConfigured || err.message === 'BACKEND_NOT_CONFIGURED') {
+        errMsg = "The backend is not reachable. Go to Vercel Dashboard → Settings → Environment Variables and set VITE_API_URL to your Railway backend URL, then redeploy.";
+      } else if (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED') {
         errMsg = "Cannot connect to the server. Please ensure the backend is running.";
-      } else if (err.response.status >= 500) {
+      } else if (err.response?.status >= 500) {
         errMsg = "Server error during registration. Please try again later.";
       } else if (err.response?.data?.detail) {
         errMsg = err.response.data.detail;
+      } else if (err.message && err.message !== 'BACKEND_NOT_CONFIGURED') {
+        errMsg = err.message;
       }
       
       setError(errMsg);
