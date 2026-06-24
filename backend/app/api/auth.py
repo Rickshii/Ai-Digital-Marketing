@@ -222,3 +222,107 @@ def upload_avatar(
     db.refresh(current_user)
     
     return {"success": True, "avatar_url": avatar_url}
+
+
+# ── Account seeder — migrates known accounts into PostgreSQL ──────────────────
+# These are the accounts from the local SQLite database. This endpoint seeds
+# them into the production PostgreSQL database preserving original password
+# hashes so users can log in with their original passwords.
+# Endpoint is admin-only and idempotent (safe to call multiple times).
+
+from datetime import timedelta
+
+KNOWN_ACCOUNTS = [
+    {
+        "email": "demo@marketerai.com",
+        "full_name": "Demo Admin",
+        "role": "admin",
+        "hashed_password": None,   # Always re-hash with canonical password
+        "canonical_password": "demo1234",
+    },
+    {
+        "email": "rickshii@gmail.com",
+        "full_name": "Rickshii",
+        "role": "user",
+        "hashed_password": "$2b$12$t5lsBICe4FT/zLMYXugwKuw1r3wAfqlJJNqMwnj8klOEFRG7x38Fq",
+    },
+    {
+        "email": "trendytrinkets@gmail.com",
+        "full_name": "Rickshii",
+        "role": "user",
+        "hashed_password": "$2b$12$LnvEHp054Kn9s2Hr9gU22eV7P3RN.m.DdxTEobkPRQkMlWZv49jba",
+    },
+    {
+        "email": "user@example.com",
+        "full_name": "Alex Digital Marketer",
+        "role": "user",
+        "hashed_password": "$2b$12$wgdaTNjr5qaitvIpDtIIUemhZVbvKiNgYG9M5sYT7llxJqq8G5ZPy",
+    },
+]
+
+
+@router.post("/seed-accounts")
+def seed_known_accounts(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_admin_user),
+):
+    """
+    Admin-only: Seeds all known user accounts from the local SQLite database
+    into the production PostgreSQL. Skips accounts that already exist.
+    Preserves original bcrypt password hashes so users can log in immediately.
+    """
+    import logging as _logging
+    _logger = _logging.getLogger("uvicorn.error")
+
+    from app.services.access_service import AccessService
+
+    results = {"seeded": [], "skipped": [], "errors": []}
+
+    for acct in KNOWN_ACCOUNTS:
+        email = acct["email"]
+        try:
+            existing = db.query(UserModel).filter(UserModel.email == email).first()
+            if existing:
+                results["skipped"].append(email)
+                _logger.info(f"[Seed] SKIP {email} (already exists id={existing.id})")
+                continue
+
+            # Use canonical password hash if provided, else re-hash
+            if acct.get("canonical_password"):
+                hashed = get_password_hash(acct["canonical_password"])
+            else:
+                hashed = acct["hashed_password"]
+
+            new_user = UserModel(
+                email=email,
+                full_name=acct["full_name"],
+                hashed_password=hashed,
+                role=acct["role"],
+            )
+            db.add(new_user)
+            db.flush()
+
+            # Give users a 30-day active trial
+            if acct["role"] != "admin":
+                AccessService.start_trial(db, new_user.id)
+
+            db.commit()
+            db.refresh(new_user)
+            results["seeded"].append(email)
+            _logger.info(f"[Seed] CREATED {email} id={new_user.id}")
+
+        except Exception as e:
+            db.rollback()
+            results["errors"].append({"email": email, "error": str(e)})
+            _logger.error(f"[Seed] ERROR {email}: {e}")
+
+    return {
+        "success": True,
+        "seeded": results["seeded"],
+        "skipped": results["skipped"],
+        "errors": results["errors"],
+        "message": (
+            f"Done. {len(results['seeded'])} accounts created, "
+            f"{len(results['skipped'])} already existed."
+        ),
+    }
