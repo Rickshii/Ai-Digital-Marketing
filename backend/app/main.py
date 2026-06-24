@@ -170,50 +170,56 @@ def seed_default_plans():
 
 def seed_known_user_accounts():
     """
-    Migrates all known user accounts (from local SQLite) into the production
-    PostgreSQL database. This runs on every startup but is idempotent — existing
-    accounts are never touched or overwritten.
+    Seeds all known user accounts into the production PostgreSQL database.
+    This runs on every startup but is idempotent — existing accounts are
+    never touched or overwritten.
 
-    This ensures that:
-    - Users who registered before the PostgreSQL migration can still log in
-    - trendytrinkets@gmail.com, rickshii@gmail.com, etc. are preserved
-    - Their original bcrypt password hashes are copied verbatim
+    All passwords are canonical (plain-text, hashed fresh on every seed run)
+    so users can always log in with these credentials on any new deployment.
+
+    Credentials summary:
+      demo@marketerai.com      / demo1234      (admin)
+      rickshii@gmail.com       / rickshii123   (user)
+      trendytrinkets@gmail.com / trendy1234    (user)
+      user@example.com         / user1234      (user)
+      admin@example.com        / admin1234     (admin)
     """
     from app.core.security import get_password_hash
     from app.services.access_service import AccessService
-    from datetime import timedelta
+    from datetime import datetime, timedelta
+    from app.models.subscription import TrialHistory
 
-    # ── All accounts from the local ai_marketing.db SQLite export ────────────
+    # ── All seeded accounts — all use canonical passwords, hashed fresh ───────
     MIGRATE_ACCOUNTS = [
-        # Primary admin — always use canonical password (re-hashed fresh)
         {
             "email": "demo@marketerai.com",
             "full_name": "Demo Admin",
             "role": "admin",
-            "password": "demo1234",          # canonical — rehash on create
-            "hashed": None,
+            "password": "demo1234",
         },
-        # User accounts — copied verbatim from SQLite with original hashes
         {
             "email": "rickshii@gmail.com",
             "full_name": "Rickshii",
             "role": "user",
-            "password": None,
-            "hashed": "$2b$12$t5lsBICe4FT/zLMYXugwKuw1r3wAfqlJJNqMwnj8klOEFRG7x38Fq",
+            "password": "rickshii123",
         },
         {
             "email": "trendytrinkets@gmail.com",
             "full_name": "Rickshii",
             "role": "user",
-            "password": None,
-            "hashed": "$2b$12$LnvEHp054Kn9s2Hr9gU22eV7P3RN.m.DdxTEobkPRQkMlWZv49jba",
+            "password": "trendy1234",
         },
         {
             "email": "user@example.com",
             "full_name": "Alex Digital Marketer",
             "role": "user",
-            "password": None,
-            "hashed": "$2b$12$wgdaTNjr5qaitvIpDtIIUemhZVbvKiNgYG9M5sYT7llxJqq8G5ZPy",
+            "password": "user1234",
+        },
+        {
+            "email": "admin@example.com",
+            "full_name": "Sarah Administrator",
+            "role": "admin",
+            "password": "admin1234",
         },
     ]
 
@@ -226,8 +232,7 @@ def seed_known_user_accounts():
             if existing:
                 continue  # Already in PostgreSQL — skip silently
 
-            # Use supplied bcrypt hash or hash the canonical password
-            pw_hash = acct["hashed"] or get_password_hash(acct["password"])
+            pw_hash = get_password_hash(acct["password"])
 
             new_user = User(
                 email=email,
@@ -238,10 +243,8 @@ def seed_known_user_accounts():
             db.add(new_user)
             db.flush()   # get new_user.id
 
-            # Start trial for regular users
+            # Start 30-day trial for regular users
             if acct["role"] != "admin":
-                from datetime import datetime, timedelta
-                from app.models.subscription import TrialHistory
                 trial = TrialHistory(
                     user_id=new_user.id,
                     start_date=datetime.utcnow(),
@@ -250,11 +253,11 @@ def seed_known_user_accounts():
                 db.add(trial)
 
             db.commit()
-            logger.info(f"[Startup] Migrated account: {email} (id={new_user.id}, role={acct['role']})")
+            logger.info(f"[Startup] Seeded account: {email} (id={new_user.id}, role={acct['role']})")
             created += 1
 
         if created:
-            logger.info(f"[Startup] Account migration complete — {created} accounts added to PostgreSQL.")
+            logger.info(f"[Startup] Account seeding complete — {created} accounts added to PostgreSQL.")
 
     except Exception as e:
         db.rollback()

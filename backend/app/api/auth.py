@@ -232,31 +232,44 @@ def upload_avatar(
 
 from datetime import timedelta
 
+# All canonical account credentials — updated passwords are fresh hashes,
+# NOT copied SQLite hashes. This means login always works on any new DB.
+# Password reference:
+#   demo@marketerai.com      / demo1234     (admin)
+#   rickshii@gmail.com       / rickshii123  (user)
+#   trendytrinkets@gmail.com / trendy1234   (user)
+#   user@example.com         / user1234     (user)
+#   admin@example.com        / admin1234    (admin)
 KNOWN_ACCOUNTS = [
     {
         "email": "demo@marketerai.com",
         "full_name": "Demo Admin",
         "role": "admin",
-        "hashed_password": None,   # Always re-hash with canonical password
         "canonical_password": "demo1234",
     },
     {
         "email": "rickshii@gmail.com",
         "full_name": "Rickshii",
         "role": "user",
-        "hashed_password": "$2b$12$t5lsBICe4FT/zLMYXugwKuw1r3wAfqlJJNqMwnj8klOEFRG7x38Fq",
+        "canonical_password": "rickshii123",
     },
     {
         "email": "trendytrinkets@gmail.com",
         "full_name": "Rickshii",
         "role": "user",
-        "hashed_password": "$2b$12$LnvEHp054Kn9s2Hr9gU22eV7P3RN.m.DdxTEobkPRQkMlWZv49jba",
+        "canonical_password": "trendy1234",
     },
     {
         "email": "user@example.com",
         "full_name": "Alex Digital Marketer",
         "role": "user",
-        "hashed_password": "$2b$12$wgdaTNjr5qaitvIpDtIIUemhZVbvKiNgYG9M5sYT7llxJqq8G5ZPy",
+        "canonical_password": "user1234",
+    },
+    {
+        "email": "admin@example.com",
+        "full_name": "Sarah Administrator",
+        "role": "admin",
+        "canonical_password": "admin1234",
     },
 ]
 
@@ -267,9 +280,9 @@ def seed_known_accounts(
     current_user: UserModel = Depends(get_current_admin_user),
 ):
     """
-    Admin-only: Seeds all known user accounts from the local SQLite database
-    into the production PostgreSQL. Skips accounts that already exist.
-    Preserves original bcrypt password hashes so users can log in immediately.
+    Admin-only: Seeds all canonical user accounts into the production PostgreSQL.
+    Skips accounts that already exist. All accounts use canonical passwords
+    (hashed fresh) so users can log in immediately after seeding.
     """
     import logging as _logging
     _logger = _logging.getLogger("uvicorn.error")
@@ -287,11 +300,8 @@ def seed_known_accounts(
                 _logger.info(f"[Seed] SKIP {email} (already exists id={existing.id})")
                 continue
 
-            # Use canonical password hash if provided, else re-hash
-            if acct.get("canonical_password"):
-                hashed = get_password_hash(acct["canonical_password"])
-            else:
-                hashed = acct["hashed_password"]
+            # All entries now use canonical_password — always hash fresh
+            hashed = get_password_hash(acct["canonical_password"])
 
             new_user = UserModel(
                 email=email,
