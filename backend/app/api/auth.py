@@ -92,6 +92,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(request: Request, db: Session = Depends(get_db)):
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("application/json"):
         body = await request.json()
@@ -102,14 +105,25 @@ async def login(request: Request, db: Session = Depends(get_db)):
         username = form.get("username") or form.get("email")
         password = form.get("password")
 
+    logger.info(f"[Auth] Login attempt for: {username} (content-type: {content_type})")
+
     if not username or not password:
+        logger.warning("[Auth] Login rejected: missing email or password")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email and password are required."
         )
 
     user = db.query(UserModel).filter(UserModel.email == username).first()
-    if not user or not verify_password(password, user.hashed_password):
+    if not user:
+        logger.warning(f"[Auth] Login failed: user '{username}' not found in database")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect email or password"
+        )
+
+    if not verify_password(password, user.hashed_password):
+        logger.warning(f"[Auth] Login failed: password mismatch for '{username}' (id={user.id})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect email or password"
@@ -119,10 +133,26 @@ async def login(request: Request, db: Session = Depends(get_db)):
     access_token = create_access_token(
         subject=user.id, expires_delta=access_token_expires
     )
+    logger.info(f"[Auth] Login SUCCESS for '{username}' (id={user.id}, role={user.role})")
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": user
+    }
+
+@router.get("/health")
+def auth_health(db: Session = Depends(get_db)):
+    """Health check endpoint for frontend connectivity verification."""
+    try:
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    return {
+        "status": "ok",
+        "database": db_status,
+        "auth_service": "operational"
     }
 
 @router.post("/logout")

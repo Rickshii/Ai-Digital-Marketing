@@ -89,8 +89,19 @@ const setLocalData = (key, val) => {
 // Helper to fall back to mock data if the backend is unavailable or failing
 const executeWithFallback = async (apiCall, mockHandler) => {
   // To enforce relying exclusively on the PostgreSQL database, we throw the API error directly and bypass mock handlers.
-  return await apiCall();
+  try {
+    return await apiCall();
+  } catch (err) {
+    console.error('[MarketerAI API] Request failed:', err.message || err);
+    if (err.response) {
+      console.error('[MarketerAI API] Status:', err.response.status, 'Body:', err.response.data);
+    }
+    throw err;
+  }
 };
+
+// Log resolved API URL for debugging (visible in browser console)
+console.info(`[MarketerAI] API_URL resolved to: ${API_URL}`);
 
 // API Services Export
 export const authAPI = {

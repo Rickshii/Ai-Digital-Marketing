@@ -79,30 +79,51 @@ def upgrade_db_schema():
 def seed_admin_user():
     from app.core.database import SessionLocal
     from app.models.user import User as UserModel
-    from app.core.security import get_password_hash
+    from app.core.security import get_password_hash, verify_password
+    import logging
+    logger = logging.getLogger("uvicorn.error")
+    
+    ADMIN_EMAIL = "demo@marketerai.com"
+    ADMIN_PASSWORD = "demo1234"
+    ADMIN_NAME = "Demo Admin"
     
     db = SessionLocal()
     try:
-        admin_email = "demo@marketerai.com"
-        admin = db.query(UserModel).filter(UserModel.email == admin_email).first()
+        admin = db.query(UserModel).filter(UserModel.email == ADMIN_EMAIL).first()
         if not admin:
             admin = UserModel(
-                email=admin_email,
-                full_name="Demo Admin",
-                hashed_password=get_password_hash("demo1234"),
+                email=ADMIN_EMAIL,
+                full_name=ADMIN_NAME,
+                hashed_password=get_password_hash(ADMIN_PASSWORD),
                 role="admin"
             )
             db.add(admin)
             db.commit()
-            print(f"[Startup] Created default admin user: {admin_email}")
+            logger.info(f"[Startup] Created default admin user: {ADMIN_EMAIL} (password: {ADMIN_PASSWORD})")
         else:
-            # Ensure the role is admin
+            changed = False
+            # Always ensure role is admin
             if admin.role != "admin":
                 admin.role = "admin"
+                changed = True
+                logger.info(f"[Startup] Fixed {ADMIN_EMAIL} role -> admin")
+            # Fix full_name if blank or malformed
+            if not admin.full_name or admin.full_name.strip() != ADMIN_NAME:
+                admin.full_name = ADMIN_NAME
+                changed = True
+                logger.info(f"[Startup] Fixed {ADMIN_EMAIL} full_name -> {ADMIN_NAME}")
+            # Verify password hash is valid — rehash if it doesn't match
+            if not verify_password(ADMIN_PASSWORD, admin.hashed_password):
+                admin.hashed_password = get_password_hash(ADMIN_PASSWORD)
+                changed = True
+                logger.info(f"[Startup] Rehashed {ADMIN_EMAIL} password (was invalid/changed)")
+            if changed:
                 db.commit()
-                print(f"[Startup] Updated user {admin_email} role to admin")
+            else:
+                logger.info(f"[Startup] Admin user {ADMIN_EMAIL} verified OK (id={admin.id})")
     except Exception as e:
-        print(f"[Startup] Error seeding admin user: {e}")
+        logger.error(f"[Startup] Error seeding admin user: {e}")
+        db.rollback()
     finally:
         db.close()
 
