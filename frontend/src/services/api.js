@@ -1457,7 +1457,12 @@ export const adminAPI = {
   rejectPayment: async (id) => {
     const response = await api.post(`/admin/payments/${id}/reject`);
     return response.data;
-  }
+  },
+
+  assignPlanToUser: async (userId, planId) => {
+    const response = await api.post(`/admin/users/${userId}/assign-plan`, { plan_id: planId });
+    return response.data;
+  },
 };
 
 export default api;

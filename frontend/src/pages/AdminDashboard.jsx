@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2,
   Eye, Edit2, X, Check, CreditCard, Calendar, Filter, Building, User, Key,
-  PlusCircle, DollarSign, Tag, Save
+  PlusCircle, DollarSign, Tag, Save, Sparkles, Loader2
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import { useToast, ToastContainer } from '../components/Toast';
 
-const BLANK_PLAN = { plan_name: '', price: '', duration_days: '', description: '' };
+const BLANK_PLAN = { plan_name: '', price: '', duration_days: '', description: '', is_special: false };
 
 const AdminDashboard = () => {
   const { toasts, addToast, removeToast } = useToast();
@@ -46,7 +46,13 @@ const AdminDashboard = () => {
   const [platformQRFile, setPlatformQRFile] = useState(null);
   const [qrTimestamp, setQrTimestamp] = useState(Date.now()); // cache-buster after upload
   const [currentQRUrl, setCurrentQRUrl] = useState(null);    // URL from DB
-  const API_BASE = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api`).replace(/\/api\/?$/, '');
+
+  // Assign Special Plan state
+  const [assignPlanModal, setAssignPlanModal] = useState({ open: false, user: null });
+  const [assignPlanId, setAssignPlanId] = useState('');
+  const [assignPlanLoading, setAssignPlanLoading] = useState(false);
+
+  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ?? '';
 
   const buildQRSrc = (url, ts) => {
     if (!url) return null;
@@ -124,6 +130,37 @@ const AdminDashboard = () => {
     }
   };
 
+  const openAssignModal = async (user) => {
+    setAssignPlanModal({ open: true, user });
+    setAssignPlanId('');
+    // Ensure plans are loaded (they're only fetched when Plans tab is active)
+    if (plans.length === 0) {
+      try {
+        const data = await adminAPI.getPlans();
+        setPlans(data);
+      } catch (_) {}
+    }
+  };
+
+  const handleAssignPlan = async (e) => {
+    e.preventDefault();
+    if (!assignPlanId) return;
+    setAssignPlanLoading(true);
+    try {
+      const res = await adminAPI.assignPlanToUser(assignPlanModal.user.id, parseInt(assignPlanId));
+      addToast(`✅ ${res.plan_name} plan assigned to ${assignPlanModal.user.email} (expires ${new Date(res.expiry_date).toLocaleDateString()}).`, 'success');
+      setAssignPlanModal({ open: false, user: null });
+      setAssignPlanId('');
+      // Refresh user list
+      const updated = await adminAPI.getUsers();
+      setUsers(updated);
+    } catch (err) {
+      addToast(err.response?.data?.detail || 'Failed to assign plan.', 'error');
+    } finally {
+      setAssignPlanLoading(false);
+    }
+  };
+
   const handleSaveNewPlan = async (e) => {
     e.preventDefault();
     setPlanError('');
@@ -138,6 +175,7 @@ const AdminDashboard = () => {
         price: parseFloat(newPlan.price),
         duration_days: parseInt(newPlan.duration_days),
         description: newPlan.description || null,
+        is_special: !!newPlan.is_special,
       });
       setPlans(prev => [...prev, created]);
       setNewPlan(BLANK_PLAN);
@@ -160,6 +198,7 @@ const AdminDashboard = () => {
         price: parseFloat(editingPlan.price),
         duration_days: parseInt(editingPlan.duration_days),
         description: editingPlan.description || null,
+        is_special: !!editingPlan.is_special,
       });
       setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
       setEditingPlan(null);
@@ -540,6 +579,13 @@ const AdminDashboard = () => {
                                   <Edit2 className="h-4 w-4" />
                                 </button>
                                 <button
+                                  onClick={() => openAssignModal(user)}
+                                  title="Assign Plan"
+                                  className="rounded-xl p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                                >
+                                  <CreditCard className="h-4 w-4" />
+                                </button>
+                                <button
                                   onClick={() => handleDeleteUser(user.id)}
                                   title="Delete User"
                                   className="rounded-xl p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all"
@@ -649,7 +695,7 @@ const AdminDashboard = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-violet-700 uppercase">Price (₹)</label>
-                        <input required type="number" min="1" step="0.01" value={newPlan.price} onChange={e => setNewPlan(p => ({ ...p, price: e.target.value }))}
+                        <input required type="number" min="0" step="0.01" value={newPlan.price} onChange={e => setNewPlan(p => ({ ...p, price: e.target.value }))}
                           placeholder="e.g. 799"
                           className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
                       </div>
@@ -665,6 +711,13 @@ const AdminDashboard = () => {
                           placeholder="Short description (optional)"
                           className="w-full px-3 py-2 text-xs rounded-xl border border-violet-200 outline-none focus:border-violet-500 bg-white font-medium" />
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input id="new-is-special" type="checkbox" checked={!!newPlan.is_special} onChange={e => setNewPlan(p => ({ ...p, is_special: e.target.checked }))}
+                        className="h-3.5 w-3.5 rounded border-violet-300 text-violet-600 focus:ring-violet-500" />
+                      <label htmlFor="new-is-special" className="text-[11px] font-semibold text-violet-700 select-none">
+                        Special Plan (admin-only — hidden from public subscription page, can only be assigned by admin)
+                      </label>
                     </div>
                     <div className="flex justify-end gap-2">
                       <button type="button" onClick={() => { setShowNewPlanForm(false); setNewPlan(BLANK_PLAN); setPlanError(''); }}
@@ -706,8 +759,13 @@ const AdminDashboard = () => {
                                 <input required type="number" min="1" value={editingPlan.duration_days} onChange={e => setEditingPlan(p => ({ ...p, duration_days: e.target.value }))}
                                   placeholder="Days" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
                               </div>
-                              <input value={editingPlan.description || ''} onChange={e => setEditingPlan(p => ({ ...p, description: e.target.value }))}
+                                <input value={editingPlan.description || ''} onChange={e => setEditingPlan(p => ({ ...p, description: e.target.value }))}
                                 placeholder="Description" className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 outline-none focus:border-violet-500 font-medium" />
+                              <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" checked={!!editingPlan.is_special} onChange={e => setEditingPlan(p => ({ ...p, is_special: e.target.checked }))}
+                                  className="h-3.5 w-3.5 rounded" />
+                                <span className="text-[11px] font-semibold text-slate-600">Special Plan (admin-only)</span>
+                              </label>
                             </div>
                             <div className="flex gap-2">
                               <button type="button" onClick={() => setEditingPlan(null)}
@@ -725,7 +783,14 @@ const AdminDashboard = () => {
                           <>
                             <div className="flex items-start justify-between">
                               <div>
-                                <p className="font-extrabold text-slate-800 text-sm">{plan.plan_name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-extrabold text-slate-800 text-sm">{plan.plan_name}</p>
+                                  {plan.is_special && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                                      <Sparkles className="h-2.5 w-2.5" /> Special
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-slate-400 text-[11px] mt-0.5">{plan.duration_days} days access</p>
                               </div>
                               <div className="flex items-baseline gap-0.5">
@@ -1164,6 +1229,69 @@ const AdminDashboard = () => {
                     className="px-5 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 font-bold shadow-md shadow-violet-500/10 disabled:opacity-50"
                   >
                     {editFormLoading ? 'Saving Changes...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Assign Plan Modal */}
+      <AnimatePresence>
+        {assignPlanModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+            >
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-sm">Assign Plan</h3>
+                  <p className="text-slate-400 text-xs mt-0.5">Manually activate a plan for <span className="font-semibold text-slate-600">{assignPlanModal.user?.email}</span></p>
+                </div>
+                <button onClick={() => setAssignPlanModal({ open: false, user: null })} className="text-slate-400 hover:text-slate-600">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAssignPlan} className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Plan</label>
+                  <select
+                    required
+                    value={assignPlanId}
+                    onChange={e => setAssignPlanId(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 outline-none focus:border-violet-500 bg-white font-medium text-slate-700"
+                  >
+                    <option value="">— Choose a plan —</option>
+                    {plans.length === 0 && <option disabled>No plans loaded. Open Plans tab first.</option>}
+                    {plans.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.plan_name} — {p.duration_days} days{p.is_special ? ' ✦ Special' : ''}
+                        {p.price > 0 ? ` (₹${Number(p.price).toLocaleString('en-IN')})` : ' (Free)'}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400">Assigning a plan activates it immediately with no payment required. Existing active subscriptions will be extended.</p>
+                </div>
+
+                <div className="flex gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setAssignPlanModal({ open: false, user: null })}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!assignPlanId || assignPlanLoading}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-bold shadow-md disabled:opacity-50"
+                  >
+                    {assignPlanLoading ? <><Loader2 className="h-4 w-4 animate-spin" /> Assigning...</> : <><Check className="h-4 w-4" /> Assign Plan</>}
                   </button>
                 </div>
               </form>

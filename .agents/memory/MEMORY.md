@@ -1,0 +1,3 @@
+- [Special Plan feature](special-plan.md) — PlanPrice.is_special=True hides plan from public /subscription/plans; assign via POST /admin/users/{id}/assign-plan
+- [Trial duration](trial-duration.md) — All trials are 3 days; access_service.py TRIAL_DURATION_DAYS=3; main.py seeds 3 days; existing over-seeded trials must be patched in DB
+- [Razorpay integration](razorpay-integration.md) — Key check uses `not key_id` (empty string), mock flow when unconfigured; webhook at /api/subscription/webhook/razorpay; HMAC uses hmac.new()

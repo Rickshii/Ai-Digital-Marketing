@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import os
 import uuid
+import hmac
+import hashlib
 
 from app.core.database import get_db
 from app.api.auth import get_current_user
@@ -14,21 +16,32 @@ from app.services.access_service import AccessService
 router = APIRouter(prefix="/subscription", tags=["Subscription and Payments"])
 
 def _get_plans_map(db: Session) -> Dict[str, Dict]:
-    """Returns {plan_name: {price, duration_days}} from DB."""
+    """Returns {plan_name: {price, duration_days}} from DB (excludes special plans)."""
     db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
     if not db_plans:
-        # Seed defaults to DB to guarantee there are plans in PostgreSQL
-        for p in [
-            {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
-            {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
-            {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits."},
-            {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants."},
-            {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges."},
-        ]:
-            db.add(PlanPrice(**p))
-        db.commit()
+        _seed_default_plans(db)
         db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
     return {p.plan_name: {"price": p.price, "duration_days": p.duration_days} for p in db_plans}
+
+
+def _seed_default_plans(db: Session):
+    for p in [
+        {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing.", "is_special": False},
+        {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems.", "is_special": False},
+        {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits.", "is_special": False},
+        {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants.", "is_special": False},
+        {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges.", "is_special": False},
+    ]:
+        db.add(PlanPrice(**p))
+    db.commit()
+
+
+def _razorpay_keys():
+    from app.core.config import settings
+    key_id = settings.RAZORPAY_KEY_ID or os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = settings.RAZORPAY_KEY_SECRET or os.getenv("RAZORPAY_KEY_SECRET", "")
+    is_configured = bool(key_id and key_secret and key_id not in ("rzp_test_dummy", "dummy_key"))
+    return key_id, key_secret, is_configured
 
 
 class CreateOrderRequest(BaseModel):
@@ -43,36 +56,27 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_signature: str
 
 
-# ── Public endpoint: returns platform QR URL (no auth, called by checkout modal) ─
+# ── Public: QR URL ────────────────────────────────────────────────────────────
 @router.get("/qr-url")
 def get_qr_url(db: Session = Depends(get_db)):
-    """Returns the admin-configured QR code URL for the checkout payment modal."""
     row = db.query(PlatformSettings).filter(PlatformSettings.key == "qr_image_url").first()
     url = row.value if row else None
-    print(f"[Subscription] GET /qr-url -> {url}")
     return {"qr_image_url": url}
 
 
-# ── Public endpoint: no auth required, used by the subscription page ─────────
+# ── Public: plans (excludes special/admin-only plans) ─────────────────────────
 @router.get("/plans", response_model=List[Dict[str, Any]])
 def list_public_plans(db: Session = Depends(get_db)):
-    """Returns all available subscription plans with their current prices."""
-    db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+    """Returns all non-special subscription plans visible to all users."""
+    db_plans = db.query(PlanPrice).filter(
+        PlanPrice.is_special == False  # noqa: E712
+    ).order_by(PlanPrice.id).all()
     if not db_plans:
-        # Seed defaults to DB to guarantee there are plans in PostgreSQL
-        print("[Subscription] No plans found in DB - seeding defaults.")
-        for p in [
-            {"plan_name": "15 Days",  "price": 299.0,  "duration_days": 15,  "description": "Perfect for quick audit reports and campaign testing."},
-            {"plan_name": "1 Month",  "price": 499.0,  "duration_days": 30,  "description": "Standard monthly access to refine your marketing systems."},
-            {"plan_name": "3 Months", "price": 1299.0, "duration_days": 90,  "description": "Medium-term plan for growing businesses and active audits."},
-            {"plan_name": "6 Months", "price": 2299.0, "duration_days": 180, "description": "Semi-annual package for established marketing consultants."},
-            {"plan_name": "1 Year",   "price": 3999.0, "duration_days": 365, "description": "Ultimate yearly pass with full executive privileges."},
-        ]:
-            db.add(PlanPrice(**p))
-        db.commit()
-        db_plans = db.query(PlanPrice).order_by(PlanPrice.id).all()
+        _seed_default_plans(db)
+        db_plans = db.query(PlanPrice).filter(
+            PlanPrice.is_special == False  # noqa: E712
+        ).order_by(PlanPrice.id).all()
 
-    print(f"[Subscription] GET /plans -> returning {len(db_plans)} plans from DB")
     return [
         {
             "id": p.id,
@@ -80,6 +84,7 @@ def list_public_plans(db: Session = Depends(get_db)):
             "price": p.price,
             "duration_days": p.duration_days,
             "description": p.description,
+            "is_special": p.is_special,
         }
         for p in db_plans
     ]
@@ -90,7 +95,6 @@ def get_status(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Retrieves the access status and trial/subscription details for the current user."""
     AccessService.log_access(db, current_user.id, "check_status")
     return AccessService.get_access_status(db, current_user.id)
 
@@ -101,41 +105,36 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Creates a Razorpay order (or mock order) for the selected plan."""
+    """Creates a Razorpay order for the selected plan."""
     plans = _get_plans_map(db)
-
     if body.plan_name not in plans:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plan '{body.plan_name}'. Available plans: {list(plans.keys())}",
+            detail=f"Invalid plan '{body.plan_name}'. Available: {list(plans.keys())}",
         )
 
     plan = plans[body.plan_name]
     amount_in_paise = int(plan["price"] * 100)
-    
-    from app.core.config import settings
-    razorpay_key_id = settings.RAZORPAY_KEY_ID or os.getenv("RAZORPAY_KEY_ID", "rzp_test_dummy")
-    razorpay_key_secret = settings.RAZORPAY_KEY_SECRET or os.getenv("RAZORPAY_KEY_SECRET", "dummy_secret")
+    key_id, key_secret, is_configured = _razorpay_keys()
 
-    # If test dummy key, or no real credentials, return mock
-    if razorpay_key_id == "rzp_test_dummy" or razorpay_key_id == "dummy_key":
+    if not is_configured:
         return {
             "success": True,
             "order_id": f"mock_order_{uuid.uuid4().hex[:8]}",
             "amount": plan["price"],
             "currency": "INR",
-            "key_id": "rzp_test_dummy",
+            "key_id": "",
             "is_mock": True,
         }
 
     try:
         import razorpay
-        client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
+        client = razorpay.Client(auth=(key_id, key_secret))
         order_data = {
             "amount": amount_in_paise,
             "currency": "INR",
             "receipt": f"rcpt_{current_user.id}_{uuid.uuid4().hex[:8]}",
-            "notes": {"user_id": current_user.id, "plan_name": body.plan_name},
+            "notes": {"user_id": str(current_user.id), "plan_name": body.plan_name},
         }
         order = client.order.create(data=order_data)
         return {
@@ -143,18 +142,17 @@ def create_order(
             "order_id": order["id"],
             "amount": plan["price"],
             "currency": "INR",
-            "key_id": razorpay_key_id,
+            "key_id": key_id,
             "is_mock": False,
         }
     except Exception as e:
-        # Fallback for when Razorpay fails
-        print(f"Razorpay error: {e}, falling back to mock")
+        print(f"[Razorpay] create_order error: {e}")
         return {
             "success": True,
             "order_id": f"mock_order_{uuid.uuid4().hex[:8]}",
             "amount": plan["price"],
             "currency": "INR",
-            "key_id": "rzp_test_dummy",
+            "key_id": "",
             "is_mock": True,
         }
 
@@ -165,12 +163,7 @@ def verify_payment(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Verifies the Razorpay payment signature and activates the subscription.
-    
-    The plan is ONLY activated after Razorpay's HMAC-SHA256 signature is validated.
-    """
-    from app.core.config import settings
-    # Resolve the plan from DB to get the canonical duration_days
+    """Verifies Razorpay signature and activates the subscription."""
     plans = _get_plans_map(db)
     if body.plan_name not in plans:
         raise HTTPException(
@@ -179,8 +172,7 @@ def verify_payment(
         )
     duration_days = plans[body.plan_name]["duration_days"]
 
-    razorpay_key_secret = settings.RAZORPAY_KEY_SECRET or os.getenv("RAZORPAY_KEY_SECRET", "dummy_secret")
-    
+    _, key_secret, _ = _razorpay_keys()
     is_mock = body.razorpay_order_id.startswith("mock_order_")
 
     result = AccessService.process_payment_and_subscription(
@@ -191,9 +183,9 @@ def verify_payment(
         razorpay_order_id=body.razorpay_order_id,
         razorpay_payment_id=body.razorpay_payment_id,
         razorpay_signature=body.razorpay_signature,
-        secret=razorpay_key_secret,
+        secret=key_secret,
         duration_days=duration_days,
-        skip_signature_verification=is_mock
+        skip_signature_verification=is_mock,
     )
 
     if not result["success"]:
@@ -207,6 +199,77 @@ def verify_payment(
         "duration_days": result.get("duration_days"),
     }
 
+
+# ── Razorpay Webhook ──────────────────────────────────────────────────────────
+@router.post("/webhook/razorpay")
+async def razorpay_webhook(request: Request, db: Session = Depends(get_db)):
+    """Razorpay webhook endpoint. Verifies signature and activates subscription on payment.captured."""
+    _, key_secret, _ = _razorpay_keys()
+    body_bytes = await request.body()
+    signature = request.headers.get("X-Razorpay-Signature", "")
+
+    # Verify webhook signature
+    if key_secret:
+        try:
+            expected = hmac.new(
+                key_secret.encode("utf-8"),
+                body_bytes,
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(expected, signature):
+                raise HTTPException(status_code=400, detail="Invalid webhook signature")
+        except Exception as e:
+            print(f"[Webhook] Signature error: {e}")
+            raise HTTPException(status_code=400, detail="Webhook signature verification failed")
+
+    import json
+    try:
+        payload = json.loads(body_bytes)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    event = payload.get("event", "")
+    print(f"[Webhook] Received event: {event}")
+
+    if event == "payment.captured":
+        entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+        razorpay_payment_id = entity.get("id", "")
+        razorpay_order_id = entity.get("order_id", "")
+        amount = entity.get("amount", 0) / 100  # paise → rupees
+        notes = entity.get("notes", {})
+        user_id = notes.get("user_id")
+        plan_name = notes.get("plan_name")
+
+        if not user_id or not plan_name:
+            print("[Webhook] Missing user_id or plan_name in notes — skipping activation")
+            return {"status": "ok", "detail": "Missing notes, skipping activation"}
+
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            return {"status": "ok", "detail": "Invalid user_id"}
+
+        plans = _get_plans_map(db)
+        if plan_name not in plans:
+            return {"status": "ok", "detail": f"Unknown plan '{plan_name}'"}
+
+        duration_days = plans[plan_name]["duration_days"]
+        result = AccessService.process_payment_and_subscription(
+            db=db,
+            user_id=user_id,
+            plan_name=plan_name,
+            amount=amount,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
+            razorpay_signature="webhook_verified",
+            duration_days=duration_days,
+            skip_signature_verification=True,
+        )
+        print(f"[Webhook] Activation result: {result}")
+
+    return {"status": "ok"}
+
+
 @router.post("/qr-payment")
 def submit_qr_payment(
     plan_name: str = Form(...),
@@ -215,7 +278,7 @@ def submit_qr_payment(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Submits a QR payment screenshot for manual verification."""
+    """Submits a QR payment screenshot for manual admin verification."""
     plans = _get_plans_map(db)
     if plan_name not in plans:
         raise HTTPException(status_code=400, detail="Invalid plan")
@@ -226,7 +289,6 @@ def submit_qr_payment(
     from app.services.storage_service import StorageService
     file_bytes = screenshot.file.read()
     mime_type = screenshot.content_type or "image/png"
-    
     payment_proof_url = StorageService.upload_file(file_bytes, screenshot.filename, mime_type, folder="proofs")
 
     from app.models.subscription import Payment
@@ -243,13 +305,11 @@ def submit_qr_payment(
     db.add(payment)
     db.commit()
 
-    return {"success": True, "detail": "Payment submitted for verification."}
+    return {"success": True, "detail": "Payment submitted for verification. An admin will approve it shortly."}
 
 
 def run_ocr_on_file(image_path: str) -> str:
     import subprocess
-    import os
-    
     abs_path = os.path.abspath(image_path)
     ps_script = f"""
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -273,21 +333,24 @@ try {{
     try:
         with open(temp_ps1, "w", encoding="utf-8") as f:
             f.write(ps_script)
-        res = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", temp_ps1], capture_output=True, text=True, timeout=10)
+        res = subprocess.run(
+            ["powershell", "-ExecutionPolicy", "Bypass", "-File", temp_ps1],
+            capture_output=True, text=True, timeout=10
+        )
         if res.returncode == 0:
             return res.stdout.strip()
-        else:
-            print(f"[OCR] PowerShell error: {res.stderr}")
-            return ""
+        print(f"[OCR] PowerShell error: {res.stderr}")
+        return ""
     except Exception as e:
-        print(f"[OCR] Subprocess exception: {e}")
+        print(f"[OCR] Exception: {e}")
         return ""
     finally:
         if os.path.exists(temp_ps1):
             try:
                 os.remove(temp_ps1)
-            except:
+            except Exception:
                 pass
+
 
 @router.post("/detect-transaction")
 def detect_transaction(
@@ -296,45 +359,42 @@ def detect_transaction(
     current_user: UserModel = Depends(get_current_user)
 ):
     import shutil
-    import uuid
     import re
-    
+
     os.makedirs("uploads/temp", exist_ok=True)
     ext = file.filename.split(".")[-1] if "." in file.filename else "png"
     temp_filename = f"temp_{uuid.uuid4().hex}.{ext}"
     temp_filepath = os.path.join("uploads/temp", temp_filename)
-    
+
     try:
         with open(temp_filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         text = run_ocr_on_file(temp_filepath)
         print(f"[OCR] Detected text: {text}")
-        
-        # Regex to find UPI UTR / Transaction ID (12-digit number)
+
         utr_match = re.search(r"\b\d{12}\b", text)
         if utr_match:
             return {"success": True, "transaction_id": utr_match.group(0), "text": text}
-            
-        # Fallback to other transaction ID patterns (e.g. 9-16 digits or alphanumeric transaction IDs)
-        # Search for labels like txn id, trans id, reference no etc.
-        txn_ref_match = re.search(r"(?:txn|transaction|ref|utr|payment|transfer|reference)\s*(?:id|no|number|ref)?\s*[:#-]?\s*([a-zA-Z0-9]{8,16})", text, re.IGNORECASE)
+
+        txn_ref_match = re.search(
+            r"(?:txn|transaction|ref|utr|payment|transfer|reference)\s*(?:id|no|number|ref)?\s*[:#-]?\s*([a-zA-Z0-9]{8,16})",
+            text, re.IGNORECASE
+        )
         if txn_ref_match:
             return {"success": True, "transaction_id": txn_ref_match.group(1), "text": text}
-            
-        # Look for any 9 to 16 digit number as a fallback
+
         any_num_match = re.search(r"\b\d{9,16}\b", text)
         if any_num_match:
             return {"success": True, "transaction_id": any_num_match.group(0), "text": text}
-            
-        return {"success": False, "transaction_id": "", "detail": "Could not find a valid Transaction ID in the screenshot.", "text": text}
+
+        return {"success": False, "transaction_id": "", "detail": "Could not find a valid Transaction ID.", "text": text}
     except Exception as e:
-        print(f"[OCR] Error during OCR: {e}")
-        return {"success": False, "transaction_id": "", "detail": f"OCR extraction error: {str(e)}"}
+        print(f"[OCR] Error: {e}")
+        return {"success": False, "transaction_id": "", "detail": f"OCR error: {str(e)}"}
     finally:
         if os.path.exists(temp_filepath):
             try:
                 os.remove(temp_filepath)
-            except:
+            except Exception:
                 pass
-

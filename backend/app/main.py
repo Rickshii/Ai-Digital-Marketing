@@ -75,6 +75,14 @@ def upgrade_db_schema():
                         db.commit()
                         logger.info(f"[Migration] Added payments.{col_name}")
 
+            # ── plan_prices columns ───────────────────────────────────────
+            if "plan_prices" in existing_tables:
+                pp_cols = [c["name"] for c in inspector.get_columns("plan_prices")]
+                if "is_special" not in pp_cols:
+                    db.execute(text("ALTER TABLE plan_prices ADD COLUMN is_special BOOLEAN DEFAULT FALSE NOT NULL"))
+                    db.commit()
+                    logger.info("[Migration] Added plan_prices.is_special")
+
             # ── users columns ─────────────────────────────────────────────
             if "users" in existing_tables:
                 user_cols = [c["name"] for c in inspector.get_columns("users")]
@@ -243,12 +251,12 @@ def seed_known_user_accounts():
             db.add(new_user)
             db.flush()   # get new_user.id
 
-            # Start 30-day trial for regular users
+            # Start 3-day trial for regular users
             if acct["role"] != "admin":
                 trial = TrialHistory(
                     user_id=new_user.id,
                     start_date=datetime.utcnow(),
-                    expiry_date=datetime.utcnow() + timedelta(days=30),
+                    expiry_date=datetime.utcnow() + timedelta(days=3),
                 )
                 db.add(trial)
 
