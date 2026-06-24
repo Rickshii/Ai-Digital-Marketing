@@ -313,6 +313,74 @@ async def lifespan(app: FastAPI):
     seed_default_platform_settings()  # Seed default QR code
 
     logger.info("[Startup] Application ready ✓")
+
+    # ── Background: trial-expiry email scheduler ───────────────────────────
+    import asyncio
+
+    async def _trial_expiry_scheduler():
+        """
+        Check every hour for users whose trial expires in ≤24 hours and
+        send them a warning email (once per user — tracked via DB flag).
+        """
+        from app.services.email_service import send_trial_expiry_warning
+        from app.core.database import SessionLocal as _SL
+        from app.models.user import User as _User
+        from app.models.subscription import Subscription as _Sub, PlatformSettings as _PS
+        from datetime import datetime, timedelta
+
+        await asyncio.sleep(10)   # let the server finish starting first
+
+        while True:
+            try:
+                db = _SL()
+                now = datetime.utcnow()
+                warning_window = now + timedelta(hours=25)  # warn if expiry < 25 h away
+
+                subs = (
+                    db.query(_Sub, _User)
+                    .join(_User, _Sub.user_id == _User.id)
+                    .filter(
+                        _Sub.expiry_date != None,
+                        _Sub.expiry_date > now,
+                        _Sub.expiry_date <= warning_window,
+                        _Sub.status.in_(["trial", "active"]),
+                    )
+                    .all()
+                )
+
+                for sub, user in subs:
+                    # Skip if already warned (store flag as platform setting keyed by user)
+                    flag_key = f"trial_warned_{user.id}_{sub.id}"
+                    existing_flag = (
+                        db.query(_PS).filter(_PS.key == flag_key).first()
+                    )
+                    if existing_flag:
+                        continue
+
+                    hours_left = max(1, int((sub.expiry_date - now).total_seconds() / 3600))
+                    sent = send_trial_expiry_warning(
+                        to_email=user.email,
+                        full_name=user.full_name or user.email,
+                        hours_remaining=hours_left,
+                    )
+                    if sent:
+                        # Mark as warned so we don't send again
+                        flag = _PS(key=flag_key, value="sent")
+                        db.add(flag)
+                        db.commit()
+                        logger.info(
+                            f"[Email] Trial expiry warning sent to {user.email} "
+                            f"({hours_left}h remaining)"
+                        )
+
+                db.close()
+            except Exception as exc:
+                logger.error(f"[Email] Trial-expiry scheduler error: {exc}")
+
+            await asyncio.sleep(3600)   # check every hour
+
+    asyncio.create_task(_trial_expiry_scheduler())
+
     yield
     logger.info("[Shutdown] Application stopping.")
 

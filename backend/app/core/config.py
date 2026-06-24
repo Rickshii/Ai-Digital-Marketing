@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
 
+    # ── Email / SMTP (optional — for trial expiry and payment notifications) ────
+    # Set SMTP_HOST to enable outgoing emails. Leave blank to disable silently.
+    # Gmail: host=smtp.gmail.com port=587 tls=true user=you@gmail.com password=app-password
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""          # defaults to SMTP_USER if blank
+    SMTP_TLS: str = "true"       # "true" = STARTTLS; "false" = SSL
+
     # ── Supabase Storage (optional — for avatar / QR image uploads) ───────────
     # If not set, the backend falls back to local disk storage in /uploads/.
     # For production, configure these to enable persistent cross-device file storage.

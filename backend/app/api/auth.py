@@ -86,7 +86,18 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     
     # Automatically start 3-day free trial
     AccessService.start_trial(db, db_user.id)
-    
+
+    # Send welcome + trial-started email (best-effort — non-blocking)
+    try:
+        from app.services.email_service import send_trial_started
+        send_trial_started(
+            to_email=db_user.email,
+            full_name=db_user.full_name or db_user.email,
+            trial_days=3,
+        )
+    except Exception:
+        pass
+
     return db_user
 
 

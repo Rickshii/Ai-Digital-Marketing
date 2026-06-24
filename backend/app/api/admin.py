@@ -440,11 +440,31 @@ def upload_platform_qr(
     db: Session = Depends(get_db),
     current_admin: UserModel = Depends(get_current_admin)
 ):
-    from app.services.storage_service import StorageService
+    """
+    Upload the platform QR code. The image is stored as a base64 data URL directly
+    in the database so it is persistent across server restarts and cloud deployments.
+    A local disk copy is also saved as a fallback.
+    """
+    import base64
     file_bytes = file.file.read()
     mime_type = file.content_type or "image/png"
-    qr_image_url = StorageService.upload_file(file_bytes, file.filename, mime_type, folder="qrs")
+
+    # Always persist as base64 data URL in DB — survives any redeploy
+    b64 = base64.b64encode(file_bytes).decode("utf-8")
+    qr_image_url = f"data:{mime_type};base64,{b64}"
+
+    # Also save to disk as a named fallback so /uploads/platform_qr.png is fresh
+    try:
+        os.makedirs("uploads", exist_ok=True)
+        disk_path = os.path.join("uploads", "platform_qr.png")
+        with open(disk_path, "wb") as f:
+            f.write(file_bytes)
+        print(f"[Admin] QR also saved to disk: {disk_path}")
+    except Exception as e:
+        print(f"[Admin] Disk write skipped: {e}")
+
     _set_setting(db, "qr_image_url", qr_image_url)
+    print(f"[Admin] Platform QR stored as base64 data URL (len={len(qr_image_url)})")
     return {"success": True, "qr_image_url": qr_image_url}
 
 
@@ -484,6 +504,8 @@ def approve_payment(
     if payment.status != "pending_verification":
         raise HTTPException(status_code=400, detail="Payment is not pending verification")
 
+    user = db.query(UserModel).filter(UserModel.id == payment.user_id).first()
+
     if payment.plan_name:
         plan = db.query(PlanPrice).filter(PlanPrice.plan_name == payment.plan_name).first()
         if plan:
@@ -503,6 +525,23 @@ def approve_payment(
     else:
         payment.status = "success"
     db.commit()
+
+    # Send approval email (best-effort — non-blocking)
+    if user:
+        try:
+            from app.services.email_service import send_payment_approved
+            sub = db.query(Subscription).filter(Subscription.user_id == user.id).order_by(Subscription.id.desc()).first()
+            valid_until = sub.expiry_date.strftime("%B %d, %Y") if sub and sub.expiry_date else ""
+            send_payment_approved(
+                to_email=user.email,
+                full_name=user.full_name or user.email,
+                plan_name=payment.plan_name or "Premium",
+                amount=payment.amount or 0,
+                valid_until=valid_until,
+            )
+        except Exception as _e:
+            logger.warning(f"[Email] Could not send approval email: {_e}")
+
     return {"success": True, "detail": "Payment approved and subscription activated."}
 
 
@@ -518,6 +557,20 @@ def reject_payment(
     if payment.status != "pending_verification":
         raise HTTPException(status_code=400, detail="Payment is not pending verification")
 
+    user = db.query(UserModel).filter(UserModel.id == payment.user_id).first()
     payment.status = "failed"
     db.commit()
+
+    # Send rejection email (best-effort — non-blocking)
+    if user:
+        try:
+            from app.services.email_service import send_payment_rejected
+            send_payment_rejected(
+                to_email=user.email,
+                full_name=user.full_name or user.email,
+                plan_name=payment.plan_name or "Premium",
+            )
+        except Exception as _e:
+            logger.warning(f"[Email] Could not send rejection email: {_e}")
+
     return {"success": True, "detail": "Payment rejected."}
