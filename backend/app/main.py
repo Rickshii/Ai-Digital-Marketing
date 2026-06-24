@@ -1,153 +1,213 @@
+import os
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
-from app.core.database import engine, Base
 
-# Import models to ensure they are registered with the Base
+from app.core.config import settings
+from app.core.database import engine, Base, SessionLocal
+
+# ── Import ALL models so SQLAlchemy registers them before create_all() ────────
 from app.models.user import User
 from app.models.business import BusinessProfile
 from app.models.audit import WebsiteAudit
 from app.models.social_media import SocialMediaAnalysis
 from app.models.marketing_strategy import MarketingStrategy
 from app.models.report import Report
-from app.models.subscription import TrialHistory, Subscription, Payment, UserAccessLog, PlanPrice, PlatformSettings
+from app.models.subscription import (
+    TrialHistory, Subscription, Payment,
+    UserAccessLog, PlanPrice, PlatformSettings
+)
+
+logger = logging.getLogger("uvicorn.error")
 
 
-# Dynamically create tables on startup for simplicity in testing
-Base.metadata.create_all(bind=engine)
-
+# ── Schema migration (adds new columns to existing tables safely) ─────────────
 def upgrade_db_schema():
+    """Idempotently add new columns that may not exist in older deployments."""
     from sqlalchemy import inspect, text
-    from app.core.database import SessionLocal
-    
-    inspector = inspect(engine)
-    if 'business_profiles' not in inspector.get_table_names():
-        return
-        
-    columns = [col['name'] for col in inspector.get_columns('business_profiles')]
-    
-    columns_to_add = [
-        ("business_category", "VARCHAR(255)"),
-        ("business_address", "VARCHAR(255)"),
-        ("city", "VARCHAR(100)"),
-        ("state", "VARCHAR(100)"),
-        ("country", "VARCHAR(100)"),
-        ("pincode", "VARCHAR(20)"),
-        ("google_profile_registered", "VARCHAR(10)"),
-        ("google_maps_link", "VARCHAR(500)"),
-        ("number_of_branches", "INTEGER DEFAULT 0"),
-        ("branch_locations", "TEXT"),
-        ("whatsapp_number", "VARCHAR(50)"),
-    ]
-    
-    db = SessionLocal()
+
     try:
-        for col_name, col_type in columns_to_add:
-            if col_name not in columns:
-                db.execute(text(f"ALTER TABLE business_profiles ADD COLUMN {col_name} {col_type}"))
-                db.commit()
-                print(f"Added column {col_name} of type {col_type} to business_profiles.")
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
 
-        # Migrate payments
-        if 'payments' in inspector.get_table_names():
-            payment_cols = [col['name'] for col in inspector.get_columns('payments')]
-            if 'payment_method' not in payment_cols:
-                db.execute(text("ALTER TABLE payments ADD COLUMN payment_method VARCHAR(50) DEFAULT 'razorpay'"))
-                db.commit()
-            if 'payment_proof' not in payment_cols:
-                db.execute(text("ALTER TABLE payments ADD COLUMN payment_proof VARCHAR(500)"))
-                db.commit()
-            if 'plan_name' not in payment_cols:
-                db.execute(text("ALTER TABLE payments ADD COLUMN plan_name VARCHAR(100)"))
-                db.commit()
+        db = SessionLocal()
+        try:
+            # ── business_profiles columns ─────────────────────────────────
+            if "business_profiles" in existing_tables:
+                bp_cols = [c["name"] for c in inspector.get_columns("business_profiles")]
+                bp_new = [
+                    ("business_category",       "VARCHAR(255)"),
+                    ("business_address",        "VARCHAR(255)"),
+                    ("city",                    "VARCHAR(100)"),
+                    ("state",                   "VARCHAR(100)"),
+                    ("country",                 "VARCHAR(100)"),
+                    ("pincode",                 "VARCHAR(20)"),
+                    ("google_profile_registered","VARCHAR(10)"),
+                    ("google_maps_link",        "VARCHAR(500)"),
+                    ("number_of_branches",      "INTEGER DEFAULT 0"),
+                    ("branch_locations",        "TEXT"),
+                    ("whatsapp_number",         "VARCHAR(50)"),
+                ]
+                for col_name, col_type in bp_new:
+                    if col_name not in bp_cols:
+                        db.execute(text(
+                            f"ALTER TABLE business_profiles ADD COLUMN {col_name} {col_type}"
+                        ))
+                        db.commit()
+                        logger.info(f"[Migration] Added business_profiles.{col_name}")
 
-        # Migrate users
-        if 'users' in inspector.get_table_names():
-            user_cols = [col['name'] for col in inspector.get_columns('users')]
-            if 'avatar_url' not in user_cols:
-                db.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"))
-                db.commit()
-                print("Added column avatar_url of type VARCHAR(500) to users.")
+            # ── payments columns ──────────────────────────────────────────
+            if "payments" in existing_tables:
+                pay_cols = [c["name"] for c in inspector.get_columns("payments")]
+                pay_new = [
+                    ("payment_method", "VARCHAR(50) DEFAULT 'razorpay'"),
+                    ("payment_proof",  "VARCHAR(500)"),
+                    ("plan_name",      "VARCHAR(100)"),
+                ]
+                for col_name, col_type in pay_new:
+                    if col_name not in pay_cols:
+                        db.execute(text(
+                            f"ALTER TABLE payments ADD COLUMN {col_name} {col_type}"
+                        ))
+                        db.commit()
+                        logger.info(f"[Migration] Added payments.{col_name}")
+
+            # ── users columns ─────────────────────────────────────────────
+            if "users" in existing_tables:
+                user_cols = [c["name"] for c in inspector.get_columns("users")]
+                if "avatar_url" not in user_cols:
+                    db.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"))
+                    db.commit()
+                    logger.info("[Migration] Added users.avatar_url")
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"[Migration] Schema upgrade error: {e}")
+        finally:
+            db.close()
 
     except Exception as e:
-        db.rollback()
-        print(f"Error checking/migrating schema: {e}")
-    finally:
-        db.close()
+        logger.error(f"[Migration] Inspector error: {e}")
 
+
+# ── Admin user seeding ────────────────────────────────────────────────────────
 def seed_admin_user():
-    from app.core.database import SessionLocal
-    from app.models.user import User as UserModel
+    """Ensure the default admin account exists and is healthy on every startup."""
     from app.core.security import get_password_hash, verify_password
-    import logging
-    logger = logging.getLogger("uvicorn.error")
-    
-    ADMIN_EMAIL = "demo@marketerai.com"
+
+    ADMIN_EMAIL    = "demo@marketerai.com"
     ADMIN_PASSWORD = "demo1234"
-    ADMIN_NAME = "Demo Admin"
-    
+    ADMIN_NAME     = "Demo Admin"
+
     db = SessionLocal()
     try:
-        admin = db.query(UserModel).filter(UserModel.email == ADMIN_EMAIL).first()
+        admin = db.query(User).filter(User.email == ADMIN_EMAIL).first()
+
         if not admin:
-            admin = UserModel(
+            admin = User(
                 email=ADMIN_EMAIL,
                 full_name=ADMIN_NAME,
                 hashed_password=get_password_hash(ADMIN_PASSWORD),
-                role="admin"
+                role="admin",
             )
             db.add(admin)
             db.commit()
-            logger.info(f"[Startup] Created default admin user: {ADMIN_EMAIL} (password: {ADMIN_PASSWORD})")
+            logger.info(f"[Startup] Created default admin: {ADMIN_EMAIL}")
         else:
             changed = False
-            # Always ensure role is admin
             if admin.role != "admin":
                 admin.role = "admin"
                 changed = True
-                logger.info(f"[Startup] Fixed {ADMIN_EMAIL} role -> admin")
-            # Fix full_name if blank or malformed
             if not admin.full_name or admin.full_name.strip() != ADMIN_NAME:
                 admin.full_name = ADMIN_NAME
                 changed = True
-                logger.info(f"[Startup] Fixed {ADMIN_EMAIL} full_name -> {ADMIN_NAME}")
-            # Verify password hash is valid — rehash if it doesn't match
             if not verify_password(ADMIN_PASSWORD, admin.hashed_password):
                 admin.hashed_password = get_password_hash(ADMIN_PASSWORD)
                 changed = True
-                logger.info(f"[Startup] Rehashed {ADMIN_EMAIL} password (was invalid/changed)")
+                logger.info(f"[Startup] Rehashed password for {ADMIN_EMAIL}")
             if changed:
                 db.commit()
+                logger.info(f"[Startup] Admin account repaired: {ADMIN_EMAIL}")
             else:
-                logger.info(f"[Startup] Admin user {ADMIN_EMAIL} verified OK (id={admin.id})")
+                logger.info(f"[Startup] Admin OK (id={admin.id})")
+
     except Exception as e:
-        logger.error(f"[Startup] Error seeding admin user: {e}")
         db.rollback()
+        logger.error(f"[Startup] seed_admin_user error: {e}")
     finally:
         db.close()
 
-upgrade_db_schema()
-seed_admin_user()
 
-from app.api import auth, business, audit
-from app.api import social_media, strategy, reports, admin, subscription
+# ── Seed default subscription plans if none exist ────────────────────────────
+def seed_default_plans():
+    db = SessionLocal()
+    try:
+        if db.query(PlanPrice).count() == 0:
+            defaults = [
+                PlanPrice(plan_name="15 Days",  price=299.0,  duration_days=15,
+                          description="Perfect for quick audit reports and campaign testing."),
+                PlanPrice(plan_name="1 Month",  price=499.0,  duration_days=30,
+                          description="Standard monthly access to refine your marketing systems."),
+                PlanPrice(plan_name="3 Months", price=1299.0, duration_days=90,
+                          description="Medium-term plan for growing businesses and active audits."),
+                PlanPrice(plan_name="6 Months", price=2299.0, duration_days=180,
+                          description="Semi-annual package for established marketing consultants."),
+                PlanPrice(plan_name="1 Year",   price=3999.0, duration_days=365,
+                          description="Ultimate yearly pass with full executive privileges."),
+            ]
+            db.add_all(defaults)
+            db.commit()
+            logger.info("[Startup] Seeded 5 default subscription plans.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[Startup] seed_default_plans error: {e}")
+    finally:
+        db.close()
 
+
+# ── FastAPI lifespan (replaces deprecated @app.on_event) ─────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("[Startup] Creating / verifying database tables …")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("[Startup] Tables OK ✓")
+    except Exception as e:
+        logger.error(f"[Startup] create_all failed: {e}")
+        raise
+
+    upgrade_db_schema()
+    seed_admin_user()
+    seed_default_plans()
+
+    logger.info("[Startup] Application ready ✓")
+    yield
+    logger.info("[Shutdown] Application stopping.")
+
+
+# ── Import routers ────────────────────────────────────────────────────────────
+from app.api import auth, business, audit, social_media, strategy, reports, admin, subscription
+
+# ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="AI-powered Digital Marketing Consultant SaaS Platform.",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-import os
+# ── Static file serving (local uploads fallback) ──────────────────────────────
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# CORS configuration — allow all origins for production compatibility.
-# We use Bearer token auth (Authorization header), NOT cookies,
-# so allow_credentials=False is correct and allows wildcard origin.
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# allow_credentials must be False when allow_origins=["*"] (HTTP spec).
+# We authenticate via Bearer tokens in the Authorization header — no cookies.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -156,26 +216,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API Routers
-app.include_router(auth.router, prefix="/api")
-app.include_router(business.router, prefix="/api")
-app.include_router(audit.router, prefix="/api")
+# ── API routers ───────────────────────────────────────────────────────────────
+app.include_router(auth.router,         prefix="/api")
+app.include_router(business.router,     prefix="/api")
+app.include_router(audit.router,        prefix="/api")
 app.include_router(social_media.router, prefix="/api")
-app.include_router(strategy.router, prefix="/api")
-app.include_router(reports.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
+app.include_router(strategy.router,     prefix="/api")
+app.include_router(reports.router,      prefix="/api")
+app.include_router(admin.router,        prefix="/api")
 app.include_router(subscription.router, prefix="/api")
 
 
+# ── Root endpoints ────────────────────────────────────────────────────────────
 @app.get("/")
 def read_root():
     return {
         "message": f"Welcome to {settings.PROJECT_NAME} API v2.0",
         "documentation": "/docs",
         "status": "healthy",
-        "modules": ["auth", "business", "seo-audit", "social-media"]
+        "modules": [
+            "auth", "business", "audit", "social-media",
+            "strategy", "reports", "admin", "subscription",
+        ],
     }
+
+
+@app.get("/health")
+def health_check():
+    """Lightweight health check for uptime monitors and deployment pipelines."""
+    from sqlalchemy import text
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {e}"
+    finally:
+        db.close()
+    return {
+        "status": "ok",
+        "database": db_status,
+        "version": "2.0.0",
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
