@@ -326,6 +326,10 @@ app = FastAPI(
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# ── Serve built React frontend in production ──────────────────────────────────
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+_frontend_dist = os.path.normpath(_frontend_dist)
+
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # allow_credentials must be False when allow_origins=["*"] (HTTP spec).
 # We authenticate via Bearer tokens in the Authorization header — no cookies.
@@ -351,6 +355,10 @@ app.include_router(subscription.router, prefix="/api")
 # ── Root endpoints ────────────────────────────────────────────────────────────
 @app.get("/")
 def read_root():
+    # In production, serve the React frontend index.html
+    if os.path.isfile(os.path.join(_frontend_dist, "index.html")):
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
     return {
         "message": f"Welcome to {settings.PROJECT_NAME} API v2.0",
         "documentation": "/docs",
@@ -379,6 +387,20 @@ def health_check():
         "database": db_status,
         "version": "2.0.0",
     }
+
+
+# ── Serve React static assets & SPA catch-all (production only) ───────────────
+if os.path.isdir(_frontend_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_frontend_dist, "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        """Catch-all: serve the React SPA for any non-API route."""
+        from fastapi.responses import FileResponse
+        file_path = os.path.join(_frontend_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(_frontend_dist, "index.html"))
 
 
 if __name__ == "__main__":
