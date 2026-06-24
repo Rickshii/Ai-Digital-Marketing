@@ -27,7 +27,7 @@ if (import.meta.env.PROD && !envApiUrl) {
   );
 }
 
-const API_URL = envApiUrl || `http://${window.location.hostname}:8000/api`;
+const API_URL = envApiUrl || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
