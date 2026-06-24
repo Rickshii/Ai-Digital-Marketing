@@ -240,7 +240,7 @@ def seed_known_user_accounts():
 
             # Start trial for regular users
             if acct["role"] != "admin":
-                from datetime import timedelta
+                from datetime import datetime, timedelta
                 from app.models.subscription import TrialHistory
                 trial = TrialHistory(
                     user_id=new_user.id,
@@ -263,6 +263,27 @@ def seed_known_user_accounts():
         db.close()
 
 
+def seed_default_platform_settings():
+    db = SessionLocal()
+    try:
+        from app.core.default_qr_constant import DEFAULT_QR_BASE64
+        row = db.query(PlatformSettings).filter(PlatformSettings.key == "qr_image_url").first()
+        if not row:
+            row = PlatformSettings(key="qr_image_url", value=DEFAULT_QR_BASE64)
+            db.add(row)
+            db.commit()
+            logger.info("[Startup] Seeded default platform QR code into database.")
+        elif not row.value:
+            row.value = DEFAULT_QR_BASE64
+            db.commit()
+            logger.info("[Startup] Restored empty platform QR code in database.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[Startup] seed_default_platform_settings error: {e}")
+    finally:
+        db.close()
+
+
 # ── FastAPI lifespan (replaces deprecated @app.on_event) ─────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -278,6 +299,7 @@ async def lifespan(app: FastAPI):
     seed_admin_user()
     seed_default_plans()
     seed_known_user_accounts()   # Migrate SQLite accounts → PostgreSQL
+    seed_default_platform_settings()  # Seed default QR code
 
     logger.info("[Startup] Application ready ✓")
     yield
