@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Trash2, Globe, AlertCircle, Users, Clock, FileText, Search, BarChart2,
   Eye, Edit2, X, Check, CreditCard, Calendar, Filter, Building, User, Key,
-  PlusCircle, DollarSign, Tag, Save, Sparkles, Loader2
+  PlusCircle, DollarSign, Tag, Save, Sparkles, Loader2, Mail, Settings,
+  Send, RefreshCw, EyeOff, ChevronDown
 } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import { useToast, ToastContainer } from '../components/Toast';
@@ -51,6 +52,16 @@ const AdminDashboard = () => {
   const [assignPlanModal, setAssignPlanModal] = useState({ open: false, user: null });
   const [assignPlanId, setAssignPlanId] = useState('');
   const [assignPlanLoading, setAssignPlanLoading] = useState(false);
+
+  // Email / SMTP settings state
+  const BLANK_SMTP = { smtp_host: '', smtp_port: '587', smtp_user: '', smtp_password: '', smtp_from: '', smtp_tls: 'true' };
+  const [emailSettings, setEmailSettings] = useState(BLANK_SMTP);
+  const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
+  const [emailSettingsSaving, setEmailSettingsSaving] = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState(false);
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [testEmailAddr, setTestEmailAddr] = useState('');
+  const [testEmailSending, setTestEmailSending] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') ?? '';
 
@@ -244,6 +255,68 @@ const AdminDashboard = () => {
     fetchAdminData();
   }, []);
 
+  const loadEmailSettings = async () => {
+    setEmailSettingsLoading(true);
+    try {
+      const data = await adminAPI.getEmailSettings();
+      setEmailSettings({
+        smtp_host:     data.smtp_host     || '',
+        smtp_port:     data.smtp_port     || '587',
+        smtp_user:     data.smtp_user     || '',
+        smtp_password: data.smtp_password || '',
+        smtp_from:     data.smtp_from     || '',
+        smtp_tls:      data.smtp_tls      || 'true',
+      });
+      setEmailConfigured(!!data.configured);
+    } catch (e) {
+      console.error('Failed to load email settings', e);
+    } finally {
+      setEmailSettingsLoading(false);
+    }
+  };
+
+  const handleSaveEmailSettings = async (e) => {
+    e.preventDefault();
+    setEmailSettingsSaving(true);
+    try {
+      await adminAPI.saveEmailSettings(emailSettings);
+      setEmailConfigured(true);
+      addToast('Email settings saved successfully.', 'success');
+      await loadEmailSettings(); // reload to get masked password back
+    } catch (err) {
+      addToast('Failed to save: ' + (err.response?.data?.detail || err.message), 'error');
+    } finally {
+      setEmailSettingsSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmailAddr) { addToast('Enter a recipient email address first.', 'error'); return; }
+    setTestEmailSending(true);
+    try {
+      const result = await adminAPI.testEmail(testEmailAddr);
+      addToast(result.detail || 'Test email sent!', 'success');
+    } catch (err) {
+      addToast('Test failed: ' + (err.response?.data?.detail || err.message), 'error');
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
+
+  const handleImportFromEnv = async () => {
+    try {
+      const result = await adminAPI.loadEmailSettingsFromEnv();
+      if (result.imported?.length > 0) {
+        addToast(`Imported ${result.imported.length} setting(s) from environment variables.`, 'success');
+        await loadEmailSettings();
+      } else {
+        addToast('No SMTP_* environment variables found to import.', 'info');
+      }
+    } catch (err) {
+      addToast('Import failed: ' + (err.response?.data?.detail || err.message), 'error');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'plans') fetchPlans();
     if (activeTab === 'payments') {
@@ -252,6 +325,7 @@ const AdminDashboard = () => {
         if (url) setCurrentQRUrl(url);
       }).catch(() => {});
     }
+    if (activeTab === 'settings') loadEmailSettings();
   }, [activeTab]);
 
   const handleDeleteUser = async (userId) => {
@@ -431,6 +505,7 @@ const AdminDashboard = () => {
               { id: 'plans',     label: 'Plan Pricing',      count: plans.length || null },
               { id: 'payments',  label: 'QR Payments',       count: pendingPayments.length || null },
               { id: 'analytics', label: 'System Analytics',  count: null },
+              { id: 'settings',  label: 'Email Settings',    count: null },
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSearchTerm(''); }}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${activeTab === tab.id ? 'bg-white text-slate-800 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -926,6 +1001,182 @@ const AdminDashboard = () => {
                       </table>
                     </div>
                   )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'settings' && (
+              <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+
+                {/* Status Banner */}
+                <div className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl border text-sm font-semibold ${emailConfigured ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  {emailConfigured
+                    ? 'Email notifications are active — trial expiry warnings and payment alerts will be sent automatically.'
+                    : 'Email notifications are not configured yet. Fill in your SMTP credentials below to enable them.'}
+                  <button onClick={handleImportFromEnv} className="ml-auto flex items-center gap-1.5 text-xs font-bold bg-white border border-current/20 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-all">
+                    <RefreshCw className="h-3 w-3" /> Import from Env Vars
+                  </button>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* SMTP Configuration Form */}
+                  <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-5">
+                      <Settings className="h-5 w-5 text-violet-500" /> SMTP Configuration
+                    </h3>
+
+                    {emailSettingsLoading ? (
+                      <div className="flex items-center justify-center h-40 text-slate-400 gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin" /> Loading settings…
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSaveEmailSettings} className="space-y-4">
+
+                        {/* Provider quick-fill */}
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Quick Fill — Common Providers</label>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { label: 'Gmail', host: 'smtp.gmail.com', port: '587', tls: 'true' },
+                              { label: 'Outlook', host: 'smtp.office365.com', port: '587', tls: 'true' },
+                              { label: 'Yahoo', host: 'smtp.mail.yahoo.com', port: '587', tls: 'true' },
+                              { label: 'Mailgun', host: 'smtp.mailgun.org', port: '587', tls: 'true' },
+                              { label: 'SendGrid', host: 'smtp.sendgrid.net', port: '587', tls: 'true' },
+                            ].map(p => (
+                              <button key={p.label} type="button"
+                                onClick={() => setEmailSettings(s => ({ ...s, smtp_host: p.host, smtp_port: p.port, smtp_tls: p.tls }))}
+                                className="px-3 py-1 text-[11px] font-semibold bg-slate-50 hover:bg-violet-50 hover:text-violet-700 border border-slate-200 hover:border-violet-200 rounded-lg transition-all">
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="col-span-2">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">SMTP Host *</label>
+                            <input type="text" placeholder="smtp.gmail.com" value={emailSettings.smtp_host}
+                              onChange={e => setEmailSettings(s => ({ ...s, smtp_host: e.target.value }))}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Port</label>
+                            <input type="number" placeholder="587" value={emailSettings.smtp_port}
+                              onChange={e => setEmailSettings(s => ({ ...s, smtp_port: e.target.value }))}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">SMTP Username / Email *</label>
+                          <input type="email" placeholder="you@gmail.com" value={emailSettings.smtp_user}
+                            onChange={e => setEmailSettings(s => ({ ...s, smtp_user: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Password / App Password *</label>
+                          <div className="relative">
+                            <input type={showSmtpPassword ? 'text' : 'password'} placeholder="Enter app password"
+                              value={emailSettings.smtp_password}
+                              onChange={e => setEmailSettings(s => ({ ...s, smtp_password: e.target.value }))}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                            <button type="button" onClick={() => setShowSmtpPassword(v => !v)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                              {showSmtpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">For Gmail, use an <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-violet-500 underline">App Password</a>, not your account password.</p>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">From Address (optional)</label>
+                          <input type="email" placeholder="MarketerAI <noreply@yourdomain.com>" value={emailSettings.smtp_from}
+                            onChange={e => setEmailSettings(s => ({ ...s, smtp_from: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                          <p className="text-[10px] text-slate-400 mt-1">Defaults to the username if left blank.</p>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Encryption</label>
+                          <div className="flex gap-3">
+                            {[{ val: 'true', label: 'STARTTLS (port 587)' }, { val: 'false', label: 'SSL (port 465)' }].map(opt => (
+                              <label key={opt.val} className={`flex items-center gap-2 cursor-pointer px-4 py-2.5 border rounded-xl text-xs font-semibold transition-all ${emailSettings.smtp_tls === opt.val ? 'bg-violet-50 border-violet-300 text-violet-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                                <input type="radio" name="smtp_tls" value={opt.val} checked={emailSettings.smtp_tls === opt.val}
+                                  onChange={() => setEmailSettings(s => ({ ...s, smtp_tls: opt.val }))} className="accent-violet-600" />
+                                {opt.label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button type="submit" disabled={emailSettingsSaving || !emailSettings.smtp_host}
+                          className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-md">
+                          {emailSettingsSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : <><Save className="h-4 w-4" /> Save Email Settings</>}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Right column — guide + test */}
+                  <div className="space-y-5">
+                    {/* Test Email */}
+                    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                      <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-4">
+                        <Send className="h-5 w-5 text-emerald-500" /> Send Test Email
+                      </h3>
+                      <p className="text-xs text-slate-500 mb-4 leading-relaxed">Save your settings first, then send a test to verify everything is working.</p>
+                      <div className="flex gap-2">
+                        <input type="email" placeholder="test@example.com" value={testEmailAddr}
+                          onChange={e => setTestEmailAddr(e.target.value)}
+                          className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                        <button onClick={handleTestEmail} disabled={testEmailSending || !emailConfigured}
+                          className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all">
+                          {testEmailSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                          {testEmailSending ? 'Sending…' : 'Send'}
+                        </button>
+                      </div>
+                      {!emailConfigured && (
+                        <p className="text-[10px] text-amber-500 font-semibold mt-2">⚠ Save your SMTP settings before testing.</p>
+                      )}
+                    </div>
+
+                    {/* What triggers emails */}
+                    <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                      <h3 className="font-extrabold text-slate-800 flex items-center gap-2 mb-4">
+                        <Mail className="h-5 w-5 text-violet-500" /> When Emails Are Sent
+                      </h3>
+                      <div className="space-y-3">
+                        {[
+                          { icon: '🚀', event: 'New Registration', desc: 'Welcome + trial-started email sent on sign-up.' },
+                          { icon: '⏰', event: 'Trial Expiry Warning', desc: 'Sent automatically 24 hours before trial ends (checked hourly).' },
+                          { icon: '✅', event: 'Payment Approved', desc: 'Confirmation sent when admin approves a QR payment.' },
+                          { icon: '❌', event: 'Payment Rejected', desc: 'Notification sent when admin rejects a QR payment.' },
+                        ].map(item => (
+                          <div key={item.event} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                            <span className="text-lg leading-none mt-0.5">{item.icon}</span>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">{item.event}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Gmail help */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-5">
+                      <h4 className="text-xs font-extrabold text-blue-800 mb-2 flex items-center gap-1.5">💡 Gmail Quick Setup</h4>
+                      <ol className="text-[11px] text-blue-700 space-y-1.5 list-decimal list-inside leading-relaxed">
+                        <li>Enable 2-Step Verification on your Google account.</li>
+                        <li>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="underline font-semibold">myaccount.google.com/apppasswords</a></li>
+                        <li>Create an App Password for "Mail" → "Other".</li>
+                        <li>Click <strong>Gmail</strong> above to auto-fill the host, then paste the 16-char app password.</li>
+                        <li>Save settings and send a test email.</li>
+                      </ol>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}

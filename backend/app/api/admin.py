@@ -425,6 +425,123 @@ def _set_setting(db: Session, key: str, value: str):
     db.commit()
 
 
+# ─── Email / SMTP Settings ────────────────────────────────────────────────────
+
+_SMTP_KEYS = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "smtp_tls"]
+
+@router.get("/email-settings")
+def get_email_settings(
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """Return current SMTP settings (password is masked for display)."""
+    result = {}
+    for key in _SMTP_KEYS:
+        val = _get_setting(db, f"email_{key}") or ""
+        if key == "smtp_password" and val:
+            result[key] = "••••••••"   # mask password in UI
+        else:
+            result[key] = val
+    result["configured"] = bool(_get_setting(db, "email_smtp_host"))
+    return result
+
+
+@router.post("/email-settings")
+def save_email_settings(
+    body: dict,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """
+    Persist SMTP settings to PlatformSettings and also push them into the
+    live process environment so emails work immediately without a restart.
+    Password is only updated if a non-masked value is provided.
+    """
+    mapping = {
+        "smtp_host":     "SMTP_HOST",
+        "smtp_port":     "SMTP_PORT",
+        "smtp_user":     "SMTP_USER",
+        "smtp_password": "SMTP_PASSWORD",
+        "smtp_from":     "SMTP_FROM",
+        "smtp_tls":      "SMTP_TLS",
+    }
+    for field, env_key in mapping.items():
+        value = body.get(field)
+        if value is None:
+            continue
+        # Skip masked password sentinel — means user left it unchanged
+        if field == "smtp_password" and set(value) <= {"•"}:
+            continue
+        _set_setting(db, f"email_{field}", str(value))
+        os.environ[env_key] = str(value)   # hot-reload into running process
+
+    return {"success": True, "detail": "Email settings saved."}
+
+
+@router.post("/email-settings/test")
+def test_email_settings(
+    body: dict,
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """
+    Send a test email to the given address using the current SMTP settings.
+    Loads settings from DB first so the test is accurate even if env vars
+    haven't been applied yet.
+    """
+    to_email = body.get("to_email", "").strip()
+    if not to_email:
+        raise HTTPException(status_code=400, detail="to_email is required")
+
+    # Ensure env vars are in sync with DB before testing
+    for field, env_key in [
+        ("smtp_host", "SMTP_HOST"), ("smtp_port", "SMTP_PORT"),
+        ("smtp_user", "SMTP_USER"), ("smtp_password", "SMTP_PASSWORD"),
+        ("smtp_from", "SMTP_FROM"), ("smtp_tls", "SMTP_TLS"),
+    ]:
+        val = _get_setting(db, f"email_{field}")
+        if val:
+            os.environ[env_key] = val
+
+    from app.services.email_service import send_email, _smtp_settings
+    host, port, user, password, from_addr, use_tls = _smtp_settings()
+    if not host:
+        raise HTTPException(status_code=400, detail="SMTP host is not configured. Save your settings first.")
+
+    html = "<p>This is a test email from <strong>MarketerAI</strong>. Your email configuration is working correctly! ✅</p>"
+    sent = send_email(to_email, "✅ MarketerAI — Test Email", html, "Test email from MarketerAI. Email configuration is working!")
+    if sent:
+        return {"success": True, "detail": f"Test email sent to {to_email}"}
+    raise HTTPException(status_code=500, detail="Failed to send test email. Check your SMTP credentials.")
+
+
+@router.post("/email-settings/load-from-env")
+def load_email_settings_from_env(
+    db: Session = Depends(get_db),
+    current_admin: UserModel = Depends(get_current_admin)
+):
+    """
+    One-time import: read SMTP_* from process environment (e.g. Replit Secrets)
+    and persist them into PlatformSettings so the UI shows them.
+    Useful when settings were already configured via env vars.
+    """
+    mapping = {
+        "smtp_host":     "SMTP_HOST",
+        "smtp_port":     "SMTP_PORT",
+        "smtp_user":     "SMTP_USER",
+        "smtp_password": "SMTP_PASSWORD",
+        "smtp_from":     "SMTP_FROM",
+        "smtp_tls":      "SMTP_TLS",
+    }
+    imported = []
+    for field, env_key in mapping.items():
+        val = os.environ.get(env_key, "")
+        if val:
+            _set_setting(db, f"email_{field}", val)
+            imported.append(field)
+    return {"success": True, "imported": imported}
+
+
 @router.get("/platform-qr")
 def get_platform_qr(
     db: Session = Depends(get_db),

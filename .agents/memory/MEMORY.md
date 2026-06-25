@@ -1,3 +1,6 @@
 - [Special Plan feature](special-plan.md) — PlanPrice.is_special=True hides plan from public /subscription/plans; assign via POST /admin/users/{id}/assign-plan
 - [Trial duration](trial-duration.md) — All trials are 3 days; access_service.py TRIAL_DURATION_DAYS=3; main.py seeds 3 days; existing over-seeded trials must be patched in DB
 - [Razorpay integration](razorpay-integration.md) — Key check uses `not key_id` (empty string), mock flow when unconfigured; webhook at /api/subscription/webhook/razorpay; HMAC uses hmac.new()
+- [QR code storage](qr-storage.md) — admin QR must be stored as base64 data URL in DB, not a relative file path; Vite also proxies /uploads/ to backend
+- [Subscription model fields](subscription-model.md) — Subscription uses expiry_date (not end_date); TrialHistory uses expiry_date; Subscription.status is "trial" or "active"
+- [Email service](email-service.md) — SMTP email at app/services/email_service.py; silently skips if SMTP_HOST not set; SMTP settings persist in PlatformSettings table (key prefix "email_"); admin UI in Email Settings tab

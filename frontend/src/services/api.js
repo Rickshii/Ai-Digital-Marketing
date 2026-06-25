@@ -1463,6 +1463,26 @@ export const adminAPI = {
     const response = await api.post(`/admin/users/${userId}/assign-plan`, { plan_id: planId });
     return response.data;
   },
+
+  getEmailSettings: async () => {
+    const response = await api.get('/admin/email-settings');
+    return response.data;
+  },
+
+  saveEmailSettings: async (settings) => {
+    const response = await api.post('/admin/email-settings', settings);
+    return response.data;
+  },
+
+  testEmail: async (toEmail) => {
+    const response = await api.post('/admin/email-settings/test', { to_email: toEmail });
+    return response.data;
+  },
+
+  loadEmailSettingsFromEnv: async () => {
+    const response = await api.post('/admin/email-settings/load-from-env');
+    return response.data;
+  },
 };
 
 export default api;
