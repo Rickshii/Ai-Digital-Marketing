@@ -129,7 +129,7 @@ const DashboardLayout = ({ children }) => {
           <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
             {user?.avatar_url ? (
               <img
-                src={user.avatar_url?.startsWith('data:') || user.avatar_url?.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                src={user.avatar_url}
                 alt={user.full_name || 'User'}
                 className="h-10 w-10 rounded-full object-cover shadow border border-slate-100"
               />
@@ -349,7 +349,7 @@ const DashboardLayout = ({ children }) => {
               >
                 {user?.avatar_url ? (
                   <img
-                    src={user.avatar_url?.startsWith('data:') || user.avatar_url?.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                    src={user.avatar_url}
                     alt={user.full_name || 'User'}
                     className="h-7 w-7 rounded-full object-cover border border-slate-100"
                   />
@@ -459,7 +459,7 @@ const DashboardLayout = ({ children }) => {
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
                   {user?.avatar_url ? (
                     <img
-                      src={user.avatar_url?.startsWith('data:') || user.avatar_url?.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                      src={user.avatar_url}
                       alt={user.full_name || 'User'}
                       className="h-10 w-10 rounded-full object-cover border border-slate-100"
                     />

@@ -240,7 +240,7 @@ const Settings = () => {
                   />
                   {user?.avatar_url ? (
                     <img
-                      src={user.avatar_url.startsWith('data:') || user.avatar_url.startsWith('http') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                      src={user.avatar_url}
                       alt={user.full_name || 'User'}
                       className="h-16 w-16 rounded-2xl object-cover shadow-lg border border-slate-100"
                     />
