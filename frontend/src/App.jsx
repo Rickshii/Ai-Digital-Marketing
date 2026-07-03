@@ -32,8 +32,8 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <AuthProvider>
+    <AuthProvider>
+      <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -56,8 +56,8 @@ function App() {
           </Route>
 
         </Routes>
-      </AuthProvider>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 
