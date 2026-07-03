@@ -99,13 +99,10 @@ export const authAPI = {
   login: async (email, password) => {
     return executeWithFallback(
       async () => {
-        const formData = new URLSearchParams();
-        formData.append('username', email);
-        formData.append('password', password);
-        const response = await axios.post(`${API_URL}/auth/login`, formData, {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
+        const response = await api.post('/auth/login', {
+          username: email,
+          email: email,
+          password: password,
         });
         return response.data;
       },
