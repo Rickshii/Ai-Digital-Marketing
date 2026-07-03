@@ -22,7 +22,8 @@ class Settings(BaseSettings):
 
     # Set to "true" ONLY for local development when PostgreSQL is not running.
     # Must be "false" in all cloud deployments (Railway / Render / Supabase).
-    USE_SQLITE_FALLBACK: bool = False
+    # Default to True to enable SQLite fallback for local development
+    USE_SQLITE_FALLBACK: bool = True
     SQLITE_DATABASE_URL: str = "sqlite:///./ai_marketing.db"
 
     # ── Razorpay ──────────────────────────────────────────────────────────────

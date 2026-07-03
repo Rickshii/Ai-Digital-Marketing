@@ -39,20 +39,24 @@ engine_kwargs = {
 
 # ── SQLite fallback (local dev only) ─────────────────────────────────────────
 _using_sqlite = False
-if settings.USE_SQLITE_FALLBACK:
-    logger.info("[DB] USE_SQLITE_FALLBACK=true — attempting PostgreSQL first …")
-    try:
-        _test_engine = create_engine(db_url, pool_pre_ping=True,
-                                     connect_args={"connect_timeout": 5})
-        with _test_engine.connect() as _conn:
-            _conn.execute(text("SELECT 1"))
-        _test_engine.dispose()
-        logger.info("[DB] PostgreSQL connection verified ✓")
-    except Exception as _e:
-        logger.warning(f"[DB] PostgreSQL unavailable ({_e}). Falling back to SQLite.")
-        db_url = settings.SQLITE_DATABASE_URL
-        engine_kwargs = {}  # SQLite doesn't support pool options
+if settings.USE_SQLITE_FALLBACK or db_url.startswith("sqlite://"):
+    if not db_url.startswith("sqlite://"):
+        logger.info("[DB] USE_SQLITE_FALLBACK=true — attempting PostgreSQL first …")
+        try:
+            _test_engine = create_engine(db_url, pool_pre_ping=True,
+                                         connect_args={"connect_timeout": 5})
+            with _test_engine.connect() as _conn:
+                _conn.execute(text("SELECT 1"))
+            _test_engine.dispose()
+            logger.info("[DB] PostgreSQL connection verified ✓")
+        except Exception as _e:
+            logger.warning(f"[DB] PostgreSQL unavailable ({_e}). Falling back to SQLite.")
+            db_url = settings.SQLITE_DATABASE_URL
+            engine_kwargs = {}  # SQLite doesn't support pool options
+            _using_sqlite = True
+    else:
         _using_sqlite = True
+        engine_kwargs = {}  # SQLite doesn't support pool options
 
 if _using_sqlite:
     engine = create_engine(
